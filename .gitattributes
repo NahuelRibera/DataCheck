@@ -1,0 +1,20 @@
+# See https://git-scm.com/docs/gitattributes for more about git attribute files.
+
+# This repository mixes Ruby, Python, TypeScript, and Java. Rather than rely
+# on each contributor's platform default (eol=native), normalize every text
+# file to LF on checkin AND checkout everywhere -- deterministic regardless
+# of OS. This is what previously caused CRLF bytes in the committed CSVs
+# (Python's csv.writer defaults to CRLF line endings per RFC 4180); the
+# generators now write LF explicitly, and this is the repo-wide backstop.
+* text=auto eol=lf
+
+# Demo CSVs are the thing that broke -- be explicit.
+*.csv text eol=lf
+
+# Mark the database schema as having been generated.
+db/schema.rb linguist-generated
+
+# Mark any vendored files as having been vendored.
+vendor/* linguist-vendored
+config/credentials/*.yml.enc diff=rails_credentials
+config/credentials.yml.enc diff=rails_credentials

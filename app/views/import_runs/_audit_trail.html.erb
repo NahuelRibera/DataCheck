@@ -1,0 +1,15 @@
+<% if events.empty? %>
+  <div class="empty-state">No audit events yet.</div>
+<% else %>
+  <ul class="audit-list">
+    <% events.each do |event| %>
+      <li class="audit-item">
+        <span class="audit-item__time"><%= event.created_at.strftime("%b %-d %H:%M:%S") %></span>
+        <div>
+          <div class="audit-item__type"><%= event.event_type.humanize %></div>
+          <div class="audit-item__message"><%= event.message %></div>
+        </div>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

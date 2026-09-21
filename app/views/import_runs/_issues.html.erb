@@ -1,0 +1,66 @@
+<% if issues.empty? %>
+  <div class="empty-state">No issues detected.</div>
+<% else %>
+  <% by_type = issues.group_by(&:issue_type) %>
+  <div data-controller="issue-filter" style="margin: -18px;">
+    <div class="issue-filters">
+      <div class="field">
+        <label for="filter-severity">Severity</label>
+        <select id="filter-severity" data-issue-filter-target="severitySelect" data-action="change->issue-filter#apply">
+          <option value="">All</option>
+          <% ImportIssue::SEVERITIES.each do |severity| %>
+            <option value="<%= severity %>"><%= severity.humanize %></option>
+          <% end %>
+        </select>
+      </div>
+      <div class="field">
+        <label for="filter-type">Issue type</label>
+        <select id="filter-type" data-issue-filter-target="typeSelect" data-action="change->issue-filter#apply">
+          <option value="">All</option>
+          <% by_type.keys.sort.each do |type| %>
+            <option value="<%= type %>"><%= type.humanize %> (<%= by_type[type].size %>)</option>
+          <% end %>
+        </select>
+      </div>
+      <div class="field field--search">
+        <label for="filter-search">Search</label>
+        <input type="search" id="filter-search" placeholder="row, external id, message…"
+               data-issue-filter-target="search" data-action="input->issue-filter#apply">
+      </div>
+      <div class="text-muted" style="padding-bottom: 8px;">
+        <span data-issue-filter-target="count"><%= issues.size %></span> shown
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Severity</th>
+            <th>Type</th>
+            <th>Row</th>
+            <th>Reference</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% issues.each do |issue| %>
+            <tr data-issue-filter-target="row" data-severity="<%= issue.severity %>" data-issue-type="<%= issue.issue_type %>">
+              <td><%= severity_badge(issue.severity) %></td>
+              <td><%= issue.issue_type.humanize %></td>
+              <td class="numeric mono"><%= issue.row_number %></td>
+              <td class="mono"><%= issue.external_id.presence || "—" %></td>
+              <td data-controller="expandable">
+                <button type="button" class="btn" style="padding:3px 9px;" data-action="expandable#toggle" data-expandable-target="toggleLabel">Show details</button>
+                <div class="issue-row__message" data-expandable-target="content" hidden>
+                  <strong><%= issue.field_name %></strong> — <%= issue.message %>
+                </div>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <div class="empty-state" data-issue-filter-target="emptyState" hidden>No issues match the current filters.</div>
+  </div>
+<% end %>

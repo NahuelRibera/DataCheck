@@ -1,0 +1,29 @@
+<% if run.status.in?(%w[uploaded profiling failed]) %>
+  <div class="empty-state">Run preflight before a dry run is available.</div>
+<% else %>
+  <div class="metric-grid" style="margin-bottom:0;">
+    <div class="metric-card">
+      <div class="metric-card__label">Create</div>
+      <div class="metric-card__value is-success"><%= number_with_delimiter(run.create_count) %></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card__label">Update</div>
+      <div class="metric-card__value"><%= number_with_delimiter(run.update_count) %></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card__label">Skip</div>
+      <div class="metric-card__value"><%= number_with_delimiter(run.skip_count) %></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-card__label">Reject</div>
+      <div class="metric-card__value <%= "is-danger" if run.reject_count.positive? %>"><%= number_with_delimiter(run.reject_count) %></div>
+    </div>
+  </div>
+  <p class="text-muted" style="margin-top:14px;">
+    <% if run.status == "dry_run_completed" || run.status == "completed" %>
+      These counts reflect the most recent dry run and never mutate employee data.
+    <% else %>
+      Run a dry run to compute these counts without writing to the employees table.
+    <% end %>
+  </p>
+<% end %>

@@ -1,0 +1,24 @@
+<div class="page-header">
+  <div>
+    <h1><%= @company.name %></h1>
+    <div class="page-header__meta mono"><%= @company.external_id %></div>
+  </div>
+</div>
+
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-card__label">Departments</div>
+    <div class="metric-card__value"><%= @department_count %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Employees</div>
+    <div class="metric-card__value"><%= number_with_delimiter(@employee_count) %></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel__header"><h2>Import runs</h2></div>
+  <div class="panel__body panel__body--flush">
+    <%= render "import_runs/table", import_runs: @import_runs %>
+  </div>
+</div>

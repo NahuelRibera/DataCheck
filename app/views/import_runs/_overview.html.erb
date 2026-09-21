@@ -1,0 +1,14 @@
+<table class="data-table">
+  <tbody>
+    <tr><th>Company</th><td><%= link_to run.company.name, company_path(run.company) %></td></tr>
+    <tr><th>Filename</th><td class="mono"><%= run.filename %></td></tr>
+    <tr><th>Status</th><td><%= status_badge(run.status) %></td></tr>
+    <tr><th>Source records</th><td><%= number_with_delimiter(run.source_record_count) %></td></tr>
+    <tr><th>Valid records</th><td><%= number_with_delimiter(run.valid_record_count) %></td></tr>
+    <tr><th>Blocking issues</th><td><%= run.blocking_issue_count %></td></tr>
+    <tr><th>Warnings</th><td><%= run.issue_count - run.blocking_issue_count %></td></tr>
+    <tr><th>Create / Update / Skip / Reject</th><td><%= run.create_count %> / <%= run.update_count %> / <%= run.skip_count %> / <%= run.reject_count %></td></tr>
+    <tr><th>Started</th><td><%= run.started_at&.strftime("%b %-d, %Y %H:%M") || "—" %></td></tr>
+    <tr><th>Completed</th><td><%= run.completed_at&.strftime("%b %-d, %Y %H:%M") || "—" %></td></tr>
+  </tbody>
+</table>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DataCheck</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+
+    <%= stylesheet_link_tag "application", "data-turbo-track": "reload" %>
+    <script src="/builds/application.js" data-turbo-track="reload" defer></script>
+  </head>
+
+  <body>
+    <nav class="app-nav">
+      <%= link_to root_path, class: "app-nav__brand" do %>
+        <%= image_tag "datacheck-logo.png", alt: "DataCheck", class: "app-nav__logo" %>
+      <% end %>
+      <div class="app-nav__links">
+        <%= link_to "Dashboard", root_path, class: current_page?(root_path) ? "is-active" : "" %>
+        <%= link_to "Import Runs", import_runs_path, class: current_page?(import_runs_path) ? "is-active" : "" %>
+        <%= link_to "Companies", companies_path, class: current_page?(companies_path) ? "is-active" : "" %>
+      </div>
+    </nav>
+
+    <main class="app-main">
+      <% if notice %>
+        <div class="flash flash--notice"><%= notice %></div>
+      <% end %>
+      <% if alert %>
+        <div class="flash flash--alert"><%= alert %></div>
+      <% end %>
+
+      <%= yield %>
+    </main>
+  </body>
+</html>

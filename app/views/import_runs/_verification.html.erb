@@ -1,0 +1,19 @@
+<% if checks.empty? %>
+  <div class="empty-state">
+    <% if run.status == "completed" %>
+      No verification results stored yet.
+    <% else %>
+      Verification runs automatically after a successful execution.
+    <% end %>
+  </div>
+<% else %>
+  <% checks.each do |check| %>
+    <div class="check-row">
+      <%= check_badge(check.status) %>
+      <div>
+        <div class="check-row__name"><%= check.name.to_s.humanize %></div>
+        <div class="check-row__details"><%= check.details %></div>
+      </div>
+    </div>
+  <% end %>
+<% end %>

@@ -1,0 +1,10 @@
+<div class="page-header">
+  <h1>Import runs</h1>
+  <%= link_to "New import run", new_import_run_path, class: "btn btn--primary" %>
+</div>
+
+<div class="panel">
+  <div class="panel__body panel__body--flush">
+    <%= render "table", import_runs: @import_runs %>
+  </div>
+</div>

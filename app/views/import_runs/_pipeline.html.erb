@@ -1,0 +1,38 @@
+<%
+steps = [
+  ["uploaded", "Uploaded"],
+  ["preflight", "Preflight"],
+  [run.blocked? ? "blocked" : "ready", run.blocked? ? "Blocked" : "Ready"],
+  ["dry_run_completed", "Dry Run"],
+  ["completed", "Imported"],
+  ["verified", "Verified"],
+]
+
+reached = case run.status
+when "uploaded" then 0
+when "profiling" then 1
+when "blocked", "ready" then 2
+when "dry_run_completed" then 3
+when "importing" then 3
+when "completed" then run.metadata["verification"].present? ? 5 : 4
+when "failed" then -1
+else 0
+end
+%>
+<div class="pipeline">
+  <% steps.each_with_index do |(key, label), index| %>
+    <% css_class = if run.status == "failed"
+                     "is-blocked"
+                   elsif key == "blocked" && run.blocked? && index == reached
+                     "is-blocked"
+                   elsif index < reached
+                     "is-done"
+                   elsif index == reached
+                     "is-current"
+                   else
+                     ""
+                   end %>
+    <span class="pipeline__step <%= css_class %>"><%= label %></span>
+    <% unless index == steps.size - 1 %><span class="pipeline__sep">&rarr;</span><% end %>
+  <% end %>
+</div>

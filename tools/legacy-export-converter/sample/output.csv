@@ -1,0 +1,6 @@
+external_id,first_name,last_name,email,department_external_id,manager_external_id,start_date,gross_salary,status
+E-1001,Grace,Hopper,grace.hopper@example.com,ENGINEERING,,2015-06-01,98000.00,active
+E-1002,Alan,Turing,alan.turing@example.com,ENGINEERING,E-1001,2018-09-23,91000.00,active
+E-1003,Katherine,Johnson,katherine.johnson@example.com,OPERATIONS,,2012-01-12,87000.00,active
+E-1004,Margaret,Hamilton,margaret.hamilton@example.com,ENGINEERING,E-1001,2019-03-04,95000.00,active
+E-1005,Hedy,Lamarr,,RESEARCH,,2020-11-09,89000.00,inactive

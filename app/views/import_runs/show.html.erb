@@ -1,0 +1,95 @@
+<% run = @import_run %>
+
+<div class="page-header">
+  <div>
+    <h1><%= run.company.name %> &middot; <span class="mono"><%= run.filename %></span></h1>
+    <div class="page-header__meta">Import run #<%= run.id %> &middot; created <%= run.created_at.strftime("%b %-d, %Y %H:%M") %></div>
+  </div>
+  <%= status_badge(run.status) %>
+</div>
+
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-card__label">Source records</div>
+    <div class="metric-card__value"><%= number_with_delimiter(run.source_record_count) %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Valid records</div>
+    <div class="metric-card__value"><%= number_with_delimiter(run.valid_record_count) %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Blocking issues</div>
+    <div class="metric-card__value <%= "is-danger" if run.blocking_issue_count.positive? %>"><%= run.blocking_issue_count %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Warnings</div>
+    <div class="metric-card__value"><%= run.issue_count - run.blocking_issue_count %></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel__body">
+    <%= render "pipeline", run: run %>
+
+    <div class="btn-row" style="margin-top: 16px;">
+      <%= button_to "Run preflight", preflight_import_run_path(run), method: :post, class: "btn #{'btn--primary' if run.status.in?(%w[uploaded failed])}" %>
+
+      <%= button_to "Run dry run", dry_run_import_run_path(run), method: :post,
+            class: "btn #{'btn--primary' if run.status == 'ready'}",
+            disabled: !run.status.in?(%w[ready blocked dry_run_completed]) %>
+
+      <% if run.ready_for_execution? %>
+        <div data-controller="execute-confirm" data-execute-confirm-phrase-value="EXECUTE">
+          <button type="button" class="btn btn--primary" data-execute-confirm-target="trigger" data-action="execute-confirm#reveal">
+            Execute migration
+          </button>
+          <div class="confirm-panel" data-execute-confirm-target="panel" hidden>
+            <p><strong>This will write to the employees table.</strong> Type <code>EXECUTE</code> to confirm.</p>
+            <%= form_with url: execute_import_run_path(run), method: :post do %>
+              <input type="text" autocomplete="off" data-execute-confirm-target="input" data-action="input->execute-confirm#validate" style="margin-bottom:10px;">
+              <div class="btn-row">
+                <button type="submit" class="btn btn--danger" data-execute-confirm-target="submit">Confirm execute</button>
+                <button type="button" class="btn" data-action="execute-confirm#cancel">Cancel</button>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <button class="btn" disabled title="Run a dry run on an unblocked import first">Execute migration</button>
+      <% end %>
+    </div>
+    <% if run.blocked? %>
+      <p class="text-danger" style="margin-top:10px;">Execution is refused while <%= run.blocking_issue_count %> blocking issue(s) remain.</p>
+    <% end %>
+  </div>
+</div>
+
+<div class="panel" data-controller="tabs">
+  <nav class="tabs__nav" role="tablist">
+    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="overview" data-action="click->tabs#select">Overview</button>
+    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="issues" data-action="click->tabs#select">Issues (<%= @issues.size %>)</button>
+    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="dry_run" data-action="click->tabs#select">Dry Run</button>
+    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="verification" data-action="click->tabs#select">Verification</button>
+    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="audit" data-action="click->tabs#select">Audit Trail</button>
+  </nav>
+
+  <div class="tab-panel" data-tabs-target="panel" data-tab-name="overview">
+    <%= render "overview", run: run %>
+  </div>
+
+  <div class="tab-panel" data-tabs-target="panel" data-tab-name="issues" hidden>
+    <%= render "issues", run: run, issues: @issues %>
+  </div>
+
+  <div class="tab-panel" data-tabs-target="panel" data-tab-name="dry_run" hidden>
+    <%= render "dry_run", run: run %>
+  </div>
+
+  <div class="tab-panel" data-tabs-target="panel" data-tab-name="verification" hidden>
+    <%= render "verification", run: run, checks: @verification_checks %>
+  </div>
+
+  <div class="tab-panel" data-tabs-target="panel" data-tab-name="audit" hidden>
+    <%= render "audit_trail", events: @audit_events %>
+  </div>
+</div>

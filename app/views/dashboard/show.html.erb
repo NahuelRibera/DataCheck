@@ -1,0 +1,40 @@
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <div class="page-header__meta">HR data migration and validation workbench</div>
+  </div>
+  <%= link_to "New import run", new_import_run_path, class: "btn btn--primary" %>
+</div>
+
+<div class="metric-grid">
+  <div class="metric-card">
+    <div class="metric-card__label">Total import runs</div>
+    <div class="metric-card__value"><%= @total_runs %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Successful runs</div>
+    <div class="metric-card__value is-success"><%= @successful_runs %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Blocked runs</div>
+    <div class="metric-card__value is-danger"><%= @blocked_runs %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Records processed</div>
+    <div class="metric-card__value"><%= number_with_delimiter(@records_processed) %></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-card__label">Issues detected</div>
+    <div class="metric-card__value"><%= number_with_delimiter(@issues_detected) %></div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel__header">
+    <h2>Recent import runs</h2>
+    <%= link_to "View all", import_runs_path %>
+  </div>
+  <div class="panel__body panel__body--flush">
+    <%= render "import_runs/table", import_runs: @recent_runs %>
+  </div>
+</div>

@@ -1,0 +1,21 @@
+<div class="page-header">
+  <h1>Companies</h1>
+</div>
+
+<div class="panel">
+  <div class="panel__body panel__body--flush">
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>External ID</th><th class="numeric">Employees</th><th></th></tr></thead>
+      <tbody>
+        <% @companies.each do |company| %>
+          <tr>
+            <td><%= company.name %></td>
+            <td class="mono"><%= company.external_id %></td>
+            <td class="numeric"><%= @employee_counts.fetch(company.id, 0) %></td>
+            <td><%= link_to "View", company_path(company), class: "btn" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

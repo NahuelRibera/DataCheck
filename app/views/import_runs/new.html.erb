@@ -1,0 +1,33 @@
+<div class="page-header">
+  <h1>New import run</h1>
+</div>
+
+<div class="panel">
+  <div class="panel__body">
+    <%= form_with url: import_runs_path, method: :post, multipart: true, scope: :import_run do |f| %>
+      <div class="field">
+        <label for="import_run_company_id">Company</label>
+        <select name="import_run[company_id]" id="import_run_company_id">
+          <% @companies.each do |company| %>
+            <option value="<%= company.id %>"><%= company.name %> (<%= company.external_id %>)</option>
+          <% end %>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="import_run_file">Legacy HR export (CSV)</label>
+        <input type="file" name="import_run[file]" id="import_run_file" accept=".csv" required>
+      </div>
+
+      <div class="btn-row">
+        <%= f.submit "Upload", class: "btn btn--primary" %>
+        <%= link_to "Cancel", import_runs_path, class: "btn" %>
+      </div>
+    <% end %>
+  </div>
+</div>
+
+<p class="text-muted">
+  No file handy? The repository ships two deterministic demo files:
+  <code>data/demo/clean_employees.csv</code> and <code>data/demo/bad_employees.csv</code>.
+</p>

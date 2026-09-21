@@ -1,0 +1,20 @@
+{
+  "name": "datacheck",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DataCheck internal HR data migration and validation workbench",
+  "scripts": {
+    "build": "esbuild app/javascript/src/application.ts --bundle --sourcemap --outdir=public/builds",
+    "build:watch": "npm run build -- --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@hotwired/stimulus": "^3.2.2",
+    "@hotwired/turbo-rails": "^8.0.23"
+  }
+}

@@ -1,0 +1,6 @@
+EmployeeID;GivenName;FamilyName;Email;Dept;Manager;HireDate;Salary;Status
+E-1001;Grace;Hopper;grace.hopper@example.com;ENGINEERING;;06/01/2015;98000.00;Active
+E-1002;Alan;Turing;alan.turing@example.com;ENGINEERING;E-1001;09/23/2018;91000.00;Active
+E-1003;Katherine;Johnson;katherine.johnson@example.com;OPERATIONS;;01/12/2012;87000.00;Active
+E-1004;Margaret;Hamilton;margaret.hamilton@example.com;ENGINEERING;E-1001;3/4/2019;95000.00;Active
+E-1005;Hedy;Lamarr;;RESEARCH;;11/09/2020;89000.00;Inactive

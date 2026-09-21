@@ -1,0 +1,42 @@
+<% if import_runs.empty? %>
+  <div class="empty-state">No import runs yet. <%= link_to "Create one", new_import_run_path %> to get started.</div>
+<% else %>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Run</th>
+          <th>Company</th>
+          <th>Filename</th>
+          <th class="numeric">Records</th>
+          <th class="numeric">Issues</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% import_runs.each do |run| %>
+          <tr>
+            <td>#<%= run.id %></td>
+            <td><%= run.company.name %></td>
+            <td class="mono"><%= run.filename %></td>
+            <td class="numeric"><%= number_with_delimiter(run.source_record_count) %></td>
+            <td class="numeric">
+              <% if run.blocking_issue_count.positive? %>
+                <span class="text-danger"><%= run.blocking_issue_count %> blocking</span>
+              <% elsif run.issue_count.positive? %>
+                <%= run.issue_count %> warning<%= "s" if run.issue_count != 1 %>
+              <% else %>
+                —
+              <% end %>
+            </td>
+            <td><%= status_badge(run.status) %></td>
+            <td class="text-muted"><%= run.created_at.strftime("%b %-d, %Y %H:%M") %></td>
+            <td><%= link_to "View", import_run_path(run), class: "btn" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

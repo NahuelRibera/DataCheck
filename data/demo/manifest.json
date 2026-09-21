@@ -1,0 +1,35 @@
+{
+  "seed": 20260101,
+  "clean_employee_count": 2000,
+  "manager_count": 80,
+  "bad_row_count": 2015,
+  "injected_issue_counts": {
+    "duplicate_external_id": 15,
+    "unknown_department": 20,
+    "orphan_manager": 20,
+    "invalid_date": 15,
+    "missing_external_id": 10,
+    "invalid_salary": 15,
+    "invalid_email": 20,
+    "salary_format_normalized": 40,
+    "date_format_normalized": 40,
+    "whitespace_normalized": 30,
+    "duplicate_external_id_rows_total": 30,
+    "total_rows": 2015
+  },
+  "measured_issue_counts": {
+    "invalid_salary": 15,
+    "unknown_department": 20,
+    "orphan_manager": 43,
+    "invalid_date": 15,
+    "invalid_email": 20,
+    "missing_external_id": 10,
+    "duplicate_external_id": 30
+  },
+  "measured_totals": {
+    "source_count": 2015,
+    "valid_count": 1882,
+    "warning_count": 20,
+    "blocking_count": 133
+  }
+}
