@@ -2,6 +2,9 @@
 
 DataCheck is a small internal style tool for migrating employee records from a legacy HR export into a database. Every import goes through checking, previewing, running, and verifying, instead of just loading a CSV and hoping for the best.
 
+![DataCheck dashboard showing import runs, processing volume, and run status](docs/screenshots/dashboard.png)
+<p align="center"><em>Overview of import activity, processing volume, blocked runs and completed migrations.</em></p>
+
 ## Why I built this
 
 I wanted to build something around the kind of problems that show up in data operations and technical support work: debugging, working with databases, tracking down why data doesn't add up, and thinking about how information moves safely between systems. I'm more interested in what happens underneath an application than in building another user facing screen, and importing a CSV sounded like a good excuse to explore that.
@@ -29,13 +32,24 @@ From there, a dry run previews the result, execution applies it inside a transac
 
 The repository ships a synthetic dataset from a fixed random seed, so the same commands always produce the same numbers. Preflight on the intentionally broken sample (`bad_employees.csv`) reports 2,015 source rows, 1,882 valid, 133 blocking issues, and 20 warnings: duplicate external identifiers, unknown departments, orphan managers, invalid dates, missing identifiers, invalid salaries, and invalid emails.
 
+![Preflight issue list showing blocking and warning-level validation errors](docs/screenshots/preflight-issues.png)
+<p align="center"><em>Preflight detects blocking and warning-level data quality issues before any database mutation.</em></p>
+
 The distinction I cared about most is between a safe transformation and an ambiguous one. A salary written in a supported and unambiguous format can be normalized automatically. A missing manager or a duplicated employee ID doesn't, so the import stops instead of guessing. A malformed email is only a warning, dropped rather than guessed at, and never blocks the row.
+
+A run with blocking issues isn't a dead end, though: it can still be dry run to preview what execution would do, so the impact is visible even while execution itself stays refused until the issues are resolved.
+
+![Dry run preview on a blocked import, with execution still disabled](docs/screenshots/blocked-dry-run.png)
+<p align="center"><em>Invalid imports can still be analyzed through a dry run while execution remains safely blocked.</em></p>
 
 ## Dry run and execution share the same logic
 
 A dry run walks through the exact same decision for every row, create, update, skip, or reject, that execution uses, without touching the database. Against the demo's clean dataset it reports 1,940 creates, 58 updates, 2 skips, and 0 rejects, and none of those rows actually change.
 
 That's not a coincidence: both call the same `MigrationPlan` class, one with `persist: false` and one with `persist: true`, so the preview can't quietly disagree with the real operation.
+
+![Dry run preview of a clean import showing create, update, skip and reject counts](docs/screenshots/clean-dry-run.png)
+<p align="center"><em>Dry runs preview create, update, skip and reject decisions before any data is written.</em></p>
 
 ## Idempotency
 
@@ -51,9 +65,20 @@ Rails validations catch most problems first, but the database is the final guara
 
 ## Verification and the audit trail
 
+Execution is the one step that mutates the database, so the interface requires typing EXECUTE to confirm before it runs, a deliberate speed bump against triggering a real migration by accident.
+
+![Confirmation dialog requiring the word EXECUTE before a migration runs](docs/screenshots/execution-confirmation.png)
+<p align="center"><em>Execution requires an explicit confirmation before database changes are applied.</em></p>
+
 Finishing without an exception isn't the same as finishing correctly, so after execution DataCheck runs a separate verification pass that queries the database from scratch. It runs seven checks, none hardcoded to pass: whether reported counts reconcile with the normalized file, required fields are present, there are no duplicate company scoped external IDs, no employee points at a department or manager in a different company, every employee has a start date, and every accepted row actually exists afterward.
 
+![Verification results confirming migration counts against the database](docs/screenshots/verified-migration.png)
+<p align="center"><em>Post-migration verification runs seven independent checks against PostgreSQL to confirm data integrity and reconciliation.</em></p>
+
 Every stage of a run, from upload through verification, is also written to an audit trail, so someone looking at it later can reconstruct what happened without digging through raw logs.
+
+![Audit trail timeline listing every event from upload through verification](docs/screenshots/audit-trail.png)
+<p align="center"><em>The audit trail records the complete migration lifecycle from upload through verification.</em></p>
 
 ## Treating synthetic data as if it were real
 
