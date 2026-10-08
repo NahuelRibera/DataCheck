@@ -84,3 +84,22 @@ no Node framework) + RSpec + GraphQL (read-only, small).
 - `tools/legacy-export-converter/` is a standalone Java CLI (plain `javac`,
   no Maven/Gradle/Spring), not wired into the Rails runtime. It's a
   demonstration piece, not a dependency of the import pipeline.
+
+## Contributions and automation
+
+- Work happens on branches and pull requests; `main` is protected. No force pushes and no
+  history rewriting. Commit dates are never altered.
+- Commit messages follow Conventional Commits (`feat:`, `fix:`, `refactor:`, `test:`,
+  `docs:`, `perf:`, `chore:`, `ci:`, `build:`), in English, one coherent change per commit.
+- Every change keeps the invariants above and comes with specs; run `bundle exec rspec`,
+  the Python unittest suite and `npm run typecheck && npm run build` before proposing it.
+- Keep `README.md` and `docs/` accurate when behaviour, setup, schema or commands change.
+  Describe only what is implemented and verified; no promotional text or tool attributions.
+- Automated changes are produced by the autodev system: the agent runs in an isolated
+  GitHub Actions job and publishes through the autodev GitHub App, so its commits and pull
+  requests are attributed to that bot and labelled `autodev`.
+- Automated sessions must not modify `.github/`, this file, destructive migrations or the
+  dependency rules in "Invariants" without an explicit task approved by the owner. The
+  product is planned to grow into a general data-quality platform; until the owner approves
+  that direction's dependency changes, the "no job queue / no Redis / no frontend framework /
+  no external APIs" invariant stays in force.
