@@ -73,7 +73,7 @@ jobs:
       # ---------------- PROJECT SETUP ----------------
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with: { bundler-cache: false }   # no shared cache: an agent run must not seed caches
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with: { node-version: "20", package-manager-cache: false }
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "3.12" }
@@ -286,7 +286,7 @@ jobs:
       # ---------------- FULL SUITE ----------------
       - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1.327.0
         with: { bundler-cache: false }
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with: { node-version: "20", package-manager-cache: false }
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: { python-version: "3.12" }
