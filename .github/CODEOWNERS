@@ -1,0 +1,10 @@
+# Changes to automation, security-sensitive code, schema and agent instructions
+# always request the owner's review.
+/.github/                        @NahuelRibera
+/CLAUDE.md                       @NahuelRibera
+/db/                             @NahuelRibera
+/config/initializers/            @NahuelRibera
+/config/routes.rb                @NahuelRibera
+/app/services/imports/           @NahuelRibera
+/Gemfile                         @NahuelRibera
+/Gemfile.lock                    @NahuelRibera
