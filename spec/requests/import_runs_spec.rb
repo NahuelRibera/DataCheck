@@ -29,6 +29,45 @@ RSpec.describe "ImportRuns", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
+    context "with an uploaded source CSV" do
+      include CsvHelpers
+
+      let(:run) { create(:import_run, company: company, status: "uploaded") }
+
+      before do
+        write_source_csv(run, [
+          default_employee_row(external_id: "EMP-001", email: "ada@example.com"),
+          default_employee_row(external_id: "EMP-001", first_name: "Grace", last_name: "Hopper", email: "", department_external_id: "DEPT-ENG"),
+        ])
+      end
+
+      it "renders the column profile from the profiler" do
+        get "/import_runs/#{run.id}"
+        expect(response.body).to include("column-profile")
+        doc = Nokogiri::HTML(response.body)
+        row = doc.css("[data-testid=column-profile] tbody tr").find { |tr| tr.at_css("td").text.start_with?("external_id") }
+        expect(row.css("td").map(&:text).map(&:strip)).to eq(["external_id (masked)", "text", "0", "1", "1"])
+        email = doc.css("[data-testid=column-profile] tbody tr").find { |tr| tr.at_css("td").text.start_with?("email") }
+        expect(email.css("td")[2].text).to eq("1")
+      end
+
+      it "masks sensitive values in the preview but shows safe ones" do
+        get "/import_runs/#{run.id}"
+        preview = Nokogiri::HTML(response.body).at_css("[data-testid=masked-preview]").text
+        expect(preview).to include("DEPT-ENG", "***")
+        %w[Ada Lovelace Grace Hopper ada@example.com 50000.00 EMP-001].each do |raw|
+          expect(preview).not_to include(raw)
+        end
+      end
+
+      it "renders a placeholder when the source file is gone" do
+        FileUtils.rm_f(run.source_csv_path)
+        get "/import_runs/#{run.id}"
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("No readable source file")
+      end
+    end
+
     it "renders a 404 page for a missing run" do
       get "/import_runs/999999"
       expect(response).to have_http_status(:not_found)

@@ -67,6 +67,7 @@
 <div class="panel" data-controller="tabs">
   <nav class="tabs__nav" role="tablist">
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="overview" data-action="click->tabs#select">Overview</button>
+    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="preview" data-action="click->tabs#select">Preview</button>
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="issues" data-action="click->tabs#select">Issues (<%= @issues.size %>)</button>
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="dry_run" data-action="click->tabs#select">Dry Run</button>
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="verification" data-action="click->tabs#select">Verification</button>
@@ -75,6 +76,10 @@
 
   <div class="tab-panel" data-tabs-target="panel" data-tab-name="overview">
     <%= render "overview", run: run %>
+  </div>
+
+  <div class="tab-panel" data-tabs-target="panel" data-tab-name="preview" hidden>
+    <%= render "preview", preview: @preview %>
   </div>
 
   <div class="tab-panel" data-tabs-target="panel" data-tab-name="issues" hidden>
