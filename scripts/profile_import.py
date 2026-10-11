@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 from collections import Counter
 from pathlib import Path
@@ -181,6 +182,87 @@ def profile(csv_path: str, known_departments: set[str], known_employees: set[str
     }
 
 
+# Columns whose values may identify a person or carry compensation. Any column
+# not listed in SAFE_PREVIEW_COLUMNS is masked too, so unknown columns in a
+# wrong file never leak raw values.
+SAFE_PREVIEW_COLUMNS = {"department_external_id", "start_date", "status"}
+MASK = "***"
+_INTEGER_RE = re.compile(r"^-?[0-9]+$")
+_DECIMAL_RE = re.compile(r"^-?[0-9]+\.[0-9]+$")
+
+
+def is_sensitive_column(name: str) -> bool:
+    return name not in SAFE_PREVIEW_COLUMNS
+
+
+def infer_value_type(value: str) -> str:
+    if _INTEGER_RE.match(value):
+        return "integer"
+    if _DECIMAL_RE.match(value):
+        return "decimal"
+    try:
+        parse_date(value)
+        return "date"
+    except ParseError:
+        pass
+    if is_valid_email(value):
+        return "email"
+    return "text"
+
+
+def infer_column_type(values: list[str]) -> str:
+    types = {infer_value_type(value) for value in values}
+    if not types:
+        return "empty"
+    if types == {"integer", "decimal"}:
+        return "decimal"
+    return types.pop() if len(types) == 1 else "mixed"
+
+
+def preview(csv_path: str, preview_rows: int = 5) -> dict:
+    """Column profile and masked preview of the first rows.
+
+    Unlike profile(), this does not require the expected columns: its purpose
+    is to show what was understood from the file, including a wrong one.
+    Values of sensitive columns are never emitted.
+    """
+    with open(csv_path, newline="", encoding="utf-8-sig") as handle:
+        reader = csv.reader(handle)
+        header = next(reader, None)
+        if not header:
+            raise ValueError("CSV file has no header row")
+        columns = [name.strip() for name in header]
+        rows = [row for row in reader if any(cell.strip() for cell in row)]
+
+    profiles = []
+    for position, name in enumerate(columns):
+        values = [(row[position].strip() if position < len(row) else "") for row in rows]
+        present = [value for value in values if value]
+        distinct = len(set(present))
+        profiles.append({
+            "name": name,
+            "inferred_type": infer_column_type(present),
+            "null_count": len(values) - len(present),
+            "distinct_count": distinct,
+            "duplicate_count": len(present) - distinct,
+            "sensitive": is_sensitive_column(name),
+        })
+
+    preview_data = []
+    for row in rows[:preview_rows]:
+        preview_data.append([
+            (MASK if profiles[position]["sensitive"] and row[position].strip() else row[position].strip())
+            if position < len(row) else ""
+            for position in range(len(columns))
+        ])
+
+    return {
+        "row_count": len(rows),
+        "columns": profiles,
+        "preview_rows": preview_data,
+    }
+
+
 def write_normalized_csv(rows: list[dict], output_path: str) -> None:
     fieldnames = [
         "row_number", "external_id", "first_name", "last_name", "email",
@@ -200,7 +282,21 @@ def main() -> int:
     parser.add_argument("--known-departments-file")
     parser.add_argument("--known-employees-file")
     parser.add_argument("--normalized-output")
+    parser.add_argument("--preview-only", action="store_true",
+                        help="print only the column profile and masked preview")
+    parser.add_argument("--preview-rows", type=int, default=5)
     args = parser.parse_args()
+
+    if args.preview_only:
+        try:
+            print(json.dumps(preview(args.csv, max(0, min(args.preview_rows, 50)))))
+        except FileNotFoundError as error:
+            emit_error(f"file not found: {error.filename}")
+            return 2
+        except (ValueError, csv.Error, UnicodeDecodeError) as error:
+            emit_error(str(error))
+            return 2
+        return 0
 
     try:
         known_departments = read_id_list(args.known_departments_file)

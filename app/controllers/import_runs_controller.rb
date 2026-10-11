@@ -28,6 +28,7 @@ class ImportRunsController < ApplicationController
   end
 
   def show
+    @preview = Imports::PreviewService.new(@import_run).call
     @issues = @import_run.import_issues.order(:severity, :row_number)
     @audit_events = @import_run.audit_events.chronological
     @verification_checks = verification_checks_for(@import_run)

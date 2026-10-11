@@ -58,6 +58,12 @@ flowchart LR
 1. A CSV is uploaded and saved to `storage/import_runs/<id>/source.csv`
    (not the database -- it's a file, and there's no reason to put it in
    Postgres).
+   The run page's Preview tab calls `Imports::PreviewService`, which runs
+   `profile_import.py --preview-only` (read-only, no database writes) to show
+   per-column inferred type, null/empty, distinct and duplicate counts plus
+   the first rows. Only `department_external_id`, `start_date` and `status`
+   values are shown; every other column (including unknown ones) is masked
+   inside the Python script, so raw values never reach Rails.
 2. `PreflightService` shells out to the Python profiler, which reads the
    CSV, classifies every row, and writes a normalized CSV alongside it
    (`normalized.csv`) plus a JSON report on stdout.

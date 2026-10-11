@@ -1,0 +1,34 @@
+<% if preview.nil? %>
+  <div class="empty-state">No readable source file to profile.</div>
+<% else %>
+  <p class="text-muted"><%= number_with_delimiter(preview["row_count"]) %> data row(s), <%= preview["columns"].size %> column(s). Sensitive columns are masked.</p>
+
+  <table class="data-table" data-testid="column-profile">
+    <thead>
+      <tr><th>Column</th><th>Inferred type</th><th>Null / empty</th><th>Distinct</th><th>Duplicates</th></tr>
+    </thead>
+    <tbody>
+      <% preview["columns"].each do |column| %>
+        <tr>
+          <td class="mono"><%= column["name"] %><%= " (masked)" if column["sensitive"] %></td>
+          <td><%= column["inferred_type"] %></td>
+          <td><%= column["null_count"] %></td>
+          <td><%= column["distinct_count"] %></td>
+          <td><%= column["duplicate_count"] %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+
+  <h3 style="margin-top:16px;">First <%= preview["preview_rows"].size %> row(s)</h3>
+  <table class="data-table" data-testid="masked-preview">
+    <thead>
+      <tr><% preview["columns"].each do |column| %><th class="mono"><%= column["name"] %></th><% end %></tr>
+    </thead>
+    <tbody>
+      <% preview["preview_rows"].each do |row| %>
+        <tr><% row.each do |cell| %><td class="mono"><%= cell %></td><% end %></tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>

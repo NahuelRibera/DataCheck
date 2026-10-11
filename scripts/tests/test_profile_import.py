@@ -1,4 +1,5 @@
 import csv
+import json
 import sys
 import tempfile
 import unittest
@@ -6,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from profile_import import profile, write_normalized_csv
+from profile_import import preview, profile, write_normalized_csv
 
 FIELDNAMES = [
     "external_id", "first_name", "last_name", "email",
@@ -136,6 +137,57 @@ class ProfileImportTests(unittest.TestCase):
             rows = list(csv.DictReader(handle))
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["gross_salary_cents"], "5000000")
+
+
+class PreviewTest(unittest.TestCase):
+    def test_column_profile_counts_and_types(self):
+        path = write_csv([
+            base_row(external_id="EMP-1", email="a@example.com", manager_external_id="M"),
+            base_row(external_id="EMP-2", email="", manager_external_id="M"),
+            base_row(external_id="EMP-2", email="b@example.com", manager_external_id=""),
+        ])
+        result = preview(path)
+        columns = {column["name"]: column for column in result["columns"]}
+
+        self.assertEqual(result["row_count"], 3)
+        self.assertEqual(columns["external_id"]["distinct_count"], 2)
+        self.assertEqual(columns["external_id"]["duplicate_count"], 1)
+        self.assertEqual(columns["email"]["null_count"], 1)
+        self.assertEqual(columns["email"]["inferred_type"], "email")
+        self.assertEqual(columns["start_date"]["inferred_type"], "date")
+        self.assertEqual(columns["gross_salary"]["inferred_type"], "decimal")
+        self.assertEqual(columns["manager_external_id"]["null_count"], 1)
+
+    def test_sensitive_values_are_masked_in_preview(self):
+        path = write_csv([base_row()])
+        result = preview(path)
+        self.assertEqual(len(result["preview_rows"]), 1)
+        serialized = json.dumps(result)
+        for raw in ("Ada", "Lovelace", "ada@example.com", "50000.00", "EMP-001"):
+            self.assertNotIn(raw, serialized)
+        row = dict(zip([c["name"] for c in result["columns"]], result["preview_rows"][0]))
+        self.assertEqual(row["first_name"], "***")
+        self.assertEqual(row["department_external_id"], "DEPT-ENG")
+        self.assertEqual(row["status"], "active")
+
+    def test_unknown_columns_are_masked_and_missing_columns_tolerated(self):
+        handle = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, newline="")
+        handle.write("ssn,status\n123-45-6789,active\n")
+        handle.close()
+        result = preview(handle.name)
+        self.assertEqual(result["preview_rows"], [["***", "active"]])
+
+    def test_preview_row_limit(self):
+        path = write_csv([base_row(external_id=f"EMP-{i}") for i in range(10)])
+        result = preview(path, preview_rows=3)
+        self.assertEqual(len(result["preview_rows"]), 3)
+        self.assertEqual(result["row_count"], 10)
+
+    def test_empty_file_is_an_error(self):
+        handle = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False)
+        handle.close()
+        with self.assertRaises(ValueError):
+            preview(handle.name)
 
 
 if __name__ == "__main__":
