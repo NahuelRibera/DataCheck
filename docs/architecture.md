@@ -113,3 +113,14 @@ without any of that overhead. If this ever needed to scale past
 "thousands of rows in an HTTP request," the first change would be moving
 `PreflightService`/`ExecuteService` onto a background job, not extracting a
 service.
+
+## Personal data in logs and audit records
+
+Raw names, emails and salaries are kept out of the Rails log, `ImportIssue`
+and `AuditEvent` rows, and rendered pages/API responses.
+`spec/security/personal_data_leakage_spec.rb` enforces this by running the
+whole pipeline over a CSV of unique canary values. ActiveRecord inlines
+literal values into `INSERT`/`UPDATE` SQL for `employees`, which parameter
+filtering does not cover, so
+`config/initializers/redact_sensitive_sql_logging.rb` redacts those
+statements before they are logged.
