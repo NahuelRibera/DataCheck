@@ -20,6 +20,51 @@ RSpec.describe "ImportRuns", type: :request do
       expect(File.exist?(run.source_csv_path)).to be true
       expect(response).to redirect_to(import_run_path(run))
     end
+
+    context "with an invalid upload" do
+      def upload(content, filename, type = "text/csv")
+        Rack::Test::UploadedFile.new(StringIO.new(content), type, original_filename: filename)
+      end
+
+      def post_upload(file)
+        expect do
+          post "/import_runs", params: { import_run: { company_id: company.id, file: file } }
+        end.not_to change { ImportRun.count }
+        expect(response).to redirect_to(new_import_run_path)
+        follow_redirect!
+      end
+
+      it "rejects files larger than the configured limit" do
+        stub_const("ENV", ENV.to_hash.merge("IMPORT_MAX_UPLOAD_BYTES" => "50"))
+        post_upload(upload("external_id,first_name\n" + ("EMP-1,Secret\n" * 10), "big.csv"))
+        expect(response.body).to include("too large")
+        expect(response.body).not_to include("Secret")
+      end
+
+      it "uses a 20 MB default limit" do
+        expect(Imports::UploadValidator.max_bytes).to eq(20 * 1024 * 1024)
+      end
+
+      it "rejects a wrong extension" do
+        post_upload(upload("external_id\nEMP-1\n", "data.txt", "text/plain"))
+        expect(response.body).to include("must have a .csv extension")
+      end
+
+      it "rejects binary content disguised as a CSV" do
+        post_upload(upload("PK\x03\x04\x00\x00binary".b, "fake.csv"))
+        expect(response.body).to include("does not look like a CSV")
+      end
+
+      it "rejects an empty file" do
+        post_upload(upload("", "empty.csv"))
+        expect(response.body).to include("does not look like a CSV")
+      end
+
+      it "rejects a request without a file" do
+        post_upload(nil)
+        expect(response.body).to include("choose a CSV file")
+      end
+    end
   end
 
   describe "GET /import_runs/:id" do
