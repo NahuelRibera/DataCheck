@@ -53,6 +53,19 @@ RSpec.describe "GraphQL", type: :request do
     expect(JSON.parse(response.body)["data"]["importRun"]["status"]).to eq("blocked")
   end
 
+  it "rejects an over-complex query with a GraphQL error" do
+    selection = "id companyName filename status sourceRecordCount validRecordCount issueCount " \
+                "blockingIssueCount createCount updateCount skipCount rejectCount createdAt " \
+                "issues { id rowNumber externalId issueType severity fieldName message }"
+    query = "{ " + (1..15).map { |i| "r#{i}: importRuns { #{selection} }" }.join(" ") + " }"
+
+    post "/graphql", params: { query: query }
+
+    body = JSON.parse(response.body)
+    expect(body["data"]).to be_nil
+    expect(body["errors"].first["message"]).to match(/complexity/i)
+  end
+
   private
 
   def with_forgery_protection

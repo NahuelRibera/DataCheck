@@ -124,3 +124,13 @@ literal values into `INSERT`/`UPDATE` SQL for `employees`, which parameter
 filtering does not cover, so
 `config/initializers/redact_sensitive_sql_logging.rb` redacts those
 statements before they are logged.
+
+## GraphQL query limits
+
+`DataCheckSchema` bounds query cost in addition to size: `max_complexity` is
+200, `max_depth` is 6 and `max_query_string_tokens` is 5000. Each field costs
+1 and lists are not multiplied, so the widest real selection (an import run
+with all scalar fields plus its issues) costs about 22. The schema is three
+levels deep (`importRuns > issues > fields`), so depth 6 leaves headroom
+while rejecting pathological nesting. Wide queries built from many aliases
+exceed the complexity limit and get a GraphQL error without executing.
