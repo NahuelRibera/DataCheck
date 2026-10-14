@@ -129,5 +129,16 @@ RSpec.describe "Api::V1::ImportRuns", type: :request do
       expect(body["summary"].first["explanation"]).to be_present
       expect(body["issues"].map { |i| i["issue_type"] }).to eq(["invalid_email"])
     end
+
+    it "filters the list by issue type alone without narrowing the summary" do
+      create_list(:import_issue, 2, import_run: import_run, issue_type: "orphan_manager", severity: "blocking")
+      create(:import_issue, import_run: import_run, issue_type: "unknown_department", severity: "blocking")
+
+      get "/api/v1/import_runs/#{import_run.id}/issues", params: { issue_type: "orphan_manager" }
+
+      body = JSON.parse(response.body)
+      expect(body["issues"].map { |i| i["issue_type"] }).to eq(%w[orphan_manager orphan_manager])
+      expect(body["summary"].sum { |r| r["count"] }).to eq(3)
+    end
   end
 end

@@ -15,7 +15,7 @@ class ImportIssue < ApplicationRecord
     "duplicate_external_id" => "The same employee identifier appears on more than one row. Keep one row per employee or correct the identifiers.",
     "unknown_department" => "The department identifier does not match any department of the target company. Add the department or fix the code in the file.",
     "orphan_manager" => "The manager identifier refers to someone who is neither in this file nor already in the company. Fix the reference or add the manager.",
-    "invalid_date" => "A date is missing or not in the expected YYYY-MM-DD format. Correct the value in the file.",
+    "invalid_date" => "The start date is missing, is not a real calendar date, or is not in one of the accepted formats: YYYY-MM-DD, MM/DD/YYYY or DD-MM-YYYY. Correct the value in the file.",
     "missing_external_id" => "The row has no employee identifier, so it cannot be matched or imported safely. Add the identifier.",
     "invalid_salary" => "The salary is missing, not numeric or out of range. Correct the value in the file.",
     "invalid_email" => "The email address is not well formed. Correct or clear the value in the file.",
