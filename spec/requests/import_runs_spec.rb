@@ -128,4 +128,64 @@ RSpec.describe "ImportRuns", type: :request do
       expect(response.body).to include("unblocked import")
     end
   end
+
+  describe "GET /import_runs/:id issue summary" do
+    let(:run) { create(:import_run, company: company) }
+
+    let(:show_all_link) { %(href="#{import_run_path(run, anchor: 'issues')}") }
+
+    before do
+      create_list(:import_issue, 2, import_run: run, issue_type: "orphan_manager", severity: "blocking")
+      create_list(:import_issue, 3, import_run: run, issue_type: "unknown_department", severity: "blocking")
+      create(:import_issue, import_run: run, issue_type: "invalid_email", severity: "warning", row_number: 9)
+    end
+
+    def page
+      Nokogiri::HTML(response.body)
+    end
+
+    def summary_rows
+      page.css("#issue-summary tbody tr").map { |tr| tr.css("td").map { |td| td.text.strip } }
+    end
+
+    def listed_issues
+      page.css('tr[data-issue-filter-target="row"]').map { |tr| [tr["data-severity"], tr["data-issue-type"]] }
+    end
+
+    it "shows each group's count and explanation and links it to a filtered list" do
+      get "/import_runs/#{run.id}"
+
+      explanations = ImportIssue::RULE_EXPLANATIONS
+      expect(summary_rows).to eq([
+        ["Blocking", "Unknown department", explanations["unknown_department"], "3"],
+        ["Blocking", "Orphan manager", explanations["orphan_manager"], "2"],
+        ["Warning", "Invalid email", explanations["invalid_email"], "1"],
+      ])
+      expect(response.body).to include(CGI.escapeHTML("/import_runs/#{run.id}?issue_type=orphan_manager&severity=blocking#issues"))
+      expect(response.body).to include("Issues (6)")
+      expect(response.body).not_to include(show_all_link)
+    end
+
+    it "lists only matching issues when filtered by severity and issue type" do
+      get "/import_runs/#{run.id}", params: { severity: "warning", issue_type: "invalid_email" }
+
+      expect(listed_issues).to eq([%w[warning invalid_email]])
+    end
+
+    it "filters by severity alone and keeps the full total and a Show all issues link" do
+      get "/import_runs/#{run.id}", params: { severity: "warning" }
+
+      expect(listed_issues).to eq([%w[warning invalid_email]])
+      expect(summary_rows.size).to eq(3)
+      expect(response.body).to include("Issues (6)")
+      expect(response.body).to include(show_all_link)
+    end
+
+    it "filters by issue type alone" do
+      get "/import_runs/#{run.id}", params: { issue_type: "orphan_manager" }
+
+      expect(listed_issues).to eq([%w[blocking orphan_manager]] * 2)
+      expect(response.body).to include(show_all_link)
+    end
+  end
 end
