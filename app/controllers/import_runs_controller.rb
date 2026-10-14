@@ -14,8 +14,8 @@ class ImportRunsController < ApplicationController
     company = Company.find(params.require(:import_run)[:company_id])
     file = params.require(:import_run)[:file]
 
-    if file.blank?
-      redirect_to new_import_run_path, alert: "Please choose a CSV file to upload." and return
+    if (upload_error = Imports::UploadValidator.error_for(file))
+      redirect_to new_import_run_path, alert: upload_error and return
     end
 
     @import_run = company.import_runs.create!(filename: file.original_filename, status: "uploaded")
