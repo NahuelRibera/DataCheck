@@ -29,7 +29,11 @@ class ImportRunsController < ApplicationController
 
   def show
     @preview = Imports::PreviewService.new(@import_run).call
-    @issues = @import_run.import_issues.order(:severity, :row_number)
+    @issue_summary = @import_run.import_issues.summary
+    @issue_total = @issue_summary.sum(&:count)
+    @issue_filter = { severity: params[:severity].presence_in(ImportIssue::SEVERITIES), issue_type: params[:issue_type].presence_in(ImportIssue::ISSUE_TYPES) }
+    @issues = @import_run.import_issues.with_severity(@issue_filter[:severity])
+                         .with_issue_type(@issue_filter[:issue_type]).order(:severity, :row_number)
     @audit_events = @import_run.audit_events.chronological
     @verification_checks = verification_checks_for(@import_run)
   end

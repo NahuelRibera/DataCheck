@@ -68,7 +68,7 @@
   <nav class="tabs__nav" role="tablist">
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="overview" data-action="click->tabs#select">Overview</button>
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="preview" data-action="click->tabs#select">Preview</button>
-    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="issues" data-action="click->tabs#select">Issues (<%= @issues.size %>)</button>
+    <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="issues" data-action="click->tabs#select">Issues (<%= @issue_total %>)</button>
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="dry_run" data-action="click->tabs#select">Dry Run</button>
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="verification" data-action="click->tabs#select">Verification</button>
     <button class="tab" role="tab" data-tabs-target="tab" data-tab-name="audit" data-action="click->tabs#select">Audit Trail</button>
@@ -83,7 +83,7 @@
   </div>
 
   <div class="tab-panel" data-tabs-target="panel" data-tab-name="issues" hidden>
-    <%= render "issues", run: run, issues: @issues %>
+    <%= render "issues", run: run, issues: @issues, summary: @issue_summary, filter: @issue_filter %>
   </div>
 
   <div class="tab-panel" data-tabs-target="panel" data-tab-name="dry_run" hidden>

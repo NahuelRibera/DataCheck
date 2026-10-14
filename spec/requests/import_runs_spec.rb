@@ -128,4 +128,27 @@ RSpec.describe "ImportRuns", type: :request do
       expect(response.body).to include("unblocked import")
     end
   end
+
+  describe "GET /import_runs/:id issue summary" do
+    let(:run) { create(:import_run, company: company) }
+
+    before do
+      create_list(:import_issue, 2, import_run: run, issue_type: "orphan_manager", severity: "blocking")
+      create(:import_issue, import_run: run, issue_type: "invalid_email", severity: "warning", row_number: 9)
+    end
+
+    it "shows counts and links each group to a filtered list" do
+      get "/import_runs/#{run.id}"
+
+      expect(response.body).to include("issue-summary")
+      expect(response.body).to include(CGI.escapeHTML("/import_runs/#{run.id}?issue_type=orphan_manager&severity=blocking#issues"))
+    end
+
+    it "lists only matching issues when filtered" do
+      get "/import_runs/#{run.id}", params: { severity: "warning", issue_type: "invalid_email" }
+
+      expect(response.body.scan('data-issue-type="').size).to eq(1)
+      expect(response.body).to include('data-issue-type="invalid_email"')
+    end
+  end
 end

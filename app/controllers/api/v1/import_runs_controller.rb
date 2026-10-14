@@ -13,7 +13,13 @@ module Api
       end
 
       def issues
-        render json: @import_run.import_issues.order(:severity, :row_number).map { |issue| serialize_issue(issue) }
+        scope = @import_run.import_issues
+        filtered = scope.with_severity(params[:severity].presence_in(ImportIssue::SEVERITIES))
+                        .with_issue_type(params[:issue_type].presence_in(ImportIssue::ISSUE_TYPES))
+        render json: {
+          summary: scope.summary.map(&:to_h),
+          issues: filtered.order(:severity, :row_number).map { |issue| serialize_issue(issue) },
+        }
       end
 
       def preflight

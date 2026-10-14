@@ -1,6 +1,27 @@
-<% if issues.empty? %>
+<% if summary.empty? %>
   <div class="empty-state">No issues detected.</div>
 <% else %>
+  <div class="table-wrap" style="margin-bottom: 18px;">
+    <table class="data-table" id="issue-summary">
+      <thead>
+        <tr><th>Severity</th><th>Rule</th><th>What it means</th><th>Count</th></tr>
+      </thead>
+      <tbody>
+        <% summary.each do |row| %>
+          <tr>
+            <td><%= severity_badge(row.severity) %></td>
+            <td><%= link_to row.issue_type.humanize, import_run_path(run, severity: row.severity, issue_type: row.issue_type, anchor: "issues") %></td>
+            <td><%= row.explanation %></td>
+            <td class="numeric mono"><%= row.count %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    <% if filter.values.any? %>
+      <p class="text-muted">Showing filtered issues. <%= link_to "Show all issues", import_run_path(run, anchor: "issues") %></p>
+    <% end %>
+  </div>
+
   <% by_type = issues.group_by(&:issue_type) %>
   <div data-controller="issue-filter" style="margin: -18px;">
     <div class="issue-filters">
