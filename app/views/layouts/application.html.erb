@@ -11,18 +11,19 @@
   </head>
 
   <body>
-    <nav class="app-nav">
+    <a class="skip-link" href="#main">Skip to main content</a>
+    <nav class="app-nav" aria-label="Main">
       <%= link_to root_path, class: "app-nav__brand" do %>
         <%= image_tag "datacheck-logo.png", alt: "DataCheck", class: "app-nav__logo" %>
       <% end %>
       <div class="app-nav__links">
-        <%= link_to "Dashboard", root_path, class: current_page?(root_path) ? "is-active" : "" %>
+        <%= link_to "Dashboard", dashboard_path, class: current_page?(dashboard_path) ? "is-active" : "" %>
         <%= link_to "Import Runs", import_runs_path, class: current_page?(import_runs_path) ? "is-active" : "" %>
         <%= link_to "Companies", companies_path, class: current_page?(companies_path) ? "is-active" : "" %>
       </div>
     </nav>
 
-    <main class="app-main">
+    <main class="app-main" id="main">
       <% if notice %>
         <div class="flash flash--notice"><%= notice %></div>
       <% end %>
