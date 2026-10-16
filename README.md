@@ -142,7 +142,7 @@ bin/rails server
 Open http://localhost:3000
 ```
 
-`bin/setup` installs dependencies, builds the TypeScript bundle, prepares the database, and seeds a demo company with deterministic data. The app runs at the usual local Rails address afterward. `bin/rails demo:seed` resets the demo data at any point and is safe to run again.
+`bin/setup` installs dependencies, builds the TypeScript bundle, prepares the database, and seeds a demo company with deterministic data. The app runs at the usual local Rails address afterward. The root route (`/`) is a landing page that explains the workflow; the dashboard shown above is at `/dashboard`. `bin/rails demo:seed` resets the demo data at any point and is safe to run again.
 
 ## A quick demo
 

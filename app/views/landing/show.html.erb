@@ -1,0 +1,80 @@
+<% docs_base = "https://github.com/NahuelRibera/DataCheck/blob/main" %>
+<div class="landing">
+  <section class="landing__hero" aria-labelledby="landing-title">
+    <h1 id="landing-title">Check HR data before it reaches your database</h1>
+    <p class="landing__lead">
+      DataCheck is a workbench for migrating legacy employee CSV files. It profiles the file,
+      reports problems, shows what a migration would change, runs it only when nothing blocks it,
+      and then checks the result against the database. Every step is recorded in an audit trail.
+    </p>
+    <div class="btn-row">
+      <%= link_to "Open the dashboard", dashboard_path, class: "btn btn--primary" %>
+      <%= link_to "Start a new import", new_import_run_path, class: "btn" %>
+      <%= link_to "Read the documentation", "#{docs_base}/docs/architecture.md", class: "btn" %>
+    </div>
+  </section>
+
+  <section class="landing__section" aria-labelledby="problem-title">
+    <h2 id="problem-title">The problem</h2>
+    <p>
+      Legacy exports tend to contain duplicate employee IDs, malformed dates, unknown departments
+      and broken manager references. Loading such a file straight into a live system makes the
+      damage hard to find and harder to undo. DataCheck is for people who own that migration and
+      need to know what is wrong with the file, and what a load will do, before anything is written.
+    </p>
+  </section>
+
+  <section class="landing__section" aria-labelledby="workflow-title">
+    <h2 id="workflow-title">How an import works</h2>
+    <ol class="landing__steps">
+      <li>
+        <h3>Upload and preview</h3>
+        <p>Add a CSV. The preview shows inferred column types, empty and duplicate counts, and the first rows, with personal columns masked.</p>
+      </li>
+      <li>
+        <h3>Preflight</h3>
+        <p>Every row is checked. Problems are recorded as blocking issues or warnings, referenced by row number, field and employee ID.</p>
+      </li>
+      <li>
+        <h3>Dry run</h3>
+        <p>Shows how many employees would be created, updated or skipped, using the same classification as the real run, without writing any employee records.</p>
+      </li>
+      <li>
+        <h3>Execute</h3>
+        <p>Runs the migration in a single transaction. It is refused while the run still has blocking issues.</p>
+      </li>
+      <li>
+        <h3>Verify</h3>
+        <p>Integrity checks are recomputed from the database after the fact, not taken from the counters the import wrote.</p>
+      </li>
+      <li>
+        <h3>Audit</h3>
+        <p>Each step is appended to an ordered audit trail you can read on the import run page.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section class="landing__section" aria-labelledby="safety-title">
+    <h2 id="safety-title">Safety properties that are implemented</h2>
+    <ul class="landing__list">
+      <li><strong>Dry run never writes employees.</strong> It shares the migration plan code with execute but does not persist.</li>
+      <li><strong>Blocked runs cannot execute.</strong> The check lives in the execute service, not only in the web interface.</li>
+      <li><strong>Imports are idempotent.</strong> Re-running the same clean file creates nothing new; a database uniqueness constraint on company and employee ID backs this up.</li>
+      <li><strong>No raw personal values in records.</strong> Issues and audit events refer to row numbers, field names and employee IDs rather than names, emails or salaries. A test with canary values covers the pipeline.</li>
+      <li><strong>Read-only analysis.</strong> The Python profiler only reads the CSV; Rails alone writes to the database.</li>
+    </ul>
+    <p class="landing__note">
+      All data in this project is synthetic. DataCheck is a portfolio project and does not currently include user authentication.
+    </p>
+  </section>
+
+  <section class="landing__section" aria-labelledby="next-title">
+    <h2 id="next-title">Where to go next</h2>
+    <ul class="landing__list">
+      <li><%= link_to "Dashboard", dashboard_path %> with recent import runs and their status</li>
+      <li><%= link_to "All import runs", import_runs_path %></li>
+      <li><%= link_to "Architecture documentation", "#{docs_base}/docs/architecture.md" %></li>
+      <li><%= link_to "Incident case study", "#{docs_base}/docs/incident-case-study.md" %></li>
+    </ul>
+  </section>
+</div>
