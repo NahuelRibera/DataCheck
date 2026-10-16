@@ -10,6 +10,8 @@ class GraphqlController < ApplicationController
   # disables forgery protection in the test environment by default.
   skip_forgery_protection
 
+  class InvalidVariables < StandardError; end
+
   def execute
     variables = prepare_variables(params[:variables])
     query = params[:query]
@@ -20,6 +22,8 @@ class GraphqlController < ApplicationController
     }
     result = DataCheckSchema.execute(query, variables: variables, context: context, operation_name: operation_name)
     render json: result
+  rescue InvalidVariables
+    render_invalid_variables
   rescue StandardError => e
     raise e unless Rails.env.development?
     handle_error_in_development(e)
@@ -32,7 +36,10 @@ class GraphqlController < ApplicationController
     case variables_param
     when String
       if variables_param.present?
-        JSON.parse(variables_param) || {}
+        parsed = JSON.parse(variables_param) || {}
+        raise InvalidVariables unless parsed.is_a?(Hash)
+
+        parsed
       else
         {}
       end
@@ -43,8 +50,15 @@ class GraphqlController < ApplicationController
     when nil
       {}
     else
-      raise ArgumentError, "Unexpected parameter: #{variables_param}"
+      raise InvalidVariables
     end
+  rescue JSON::ParserError
+    raise InvalidVariables
+  end
+
+  def render_invalid_variables
+    # Generic on purpose: never echo the submitted input.
+    render json: { errors: [{ message: "Invalid variables parameter" }] }, status: :bad_request
   end
 
   def handle_error_in_development(e)
