@@ -66,6 +66,50 @@ RSpec.describe "GraphQL", type: :request do
     expect(body["errors"].first["message"]).to match(/complexity/i)
   end
 
+  describe "variables parameter" do
+    let(:query) { "query($id: ID!) { importRun(id: $id) { status } }" }
+
+    def expect_generic_bad_request(secret)
+      expect(response).to have_http_status(:bad_request)
+      body = JSON.parse(response.body)
+      expect(body["errors"]).to be_an(Array)
+      expect(body["errors"].first["message"]).to be_present
+      expect(response.body).not_to include(secret)
+      expect(response.body).not_to match(/backtrace|\.rb:\d+/)
+    end
+
+    it "returns 400 for malformed JSON" do
+      post "/graphql", params: { query: query, variables: '{"id": "leak-me-1' }
+
+      expect_generic_bad_request("leak-me-1")
+    end
+
+    it "returns 400 for JSON that is not an object" do
+      post "/graphql", params: { query: query, variables: '["leak-me-2"]' }
+
+      expect_generic_bad_request("leak-me-2")
+    end
+
+    it "returns 400 for an unexpected variables type" do
+      post "/graphql", params: { query: query, variables: ["leak-me-3"] }
+
+      expect_generic_bad_request("leak-me-3")
+    end
+
+    it "still accepts valid JSON string variables" do
+      post "/graphql", params: { query: query, variables: { id: import_run.id }.to_json }
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["data"]["importRun"]["status"]).to eq("blocked")
+    end
+
+    it "still accepts a blank variables value" do
+      post "/graphql", params: { query: "{ importRun(id: #{import_run.id}) { status } }", variables: "" }
+
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
   private
 
   def with_forgery_protection
