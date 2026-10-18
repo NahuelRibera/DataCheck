@@ -26,12 +26,13 @@ module Imports
 
       passed = checks.count { |c| c.status == "pass" }
       failed = checks.count { |c| c.status == "fail" }
+      failed_checks = checks.select { |c| c.status == "fail" }.map(&:name)
 
       import_run.update!(metadata: import_run.metadata.merge("verification" => checks.map(&:to_h).map(&:stringify_keys)))
       import_run.log_event!(
         "verification_completed",
         "Verification completed: #{passed} passed, #{failed} failed.",
-        metadata: { passed: passed, failed: failed }
+        metadata: { passed: passed, failed: failed, failed_checks: failed_checks }
       )
 
       checks
