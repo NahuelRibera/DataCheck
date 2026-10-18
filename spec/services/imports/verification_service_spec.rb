@@ -54,6 +54,62 @@ RSpec.describe Imports::VerificationService, type: :service do
     expect(failing.status).to eq("fail")
   end
 
+  def verification_check(name)
+    Imports::VerificationService.new(import_run).call.find { |c| c.name == name }
+  end
+
+  it "detects a broken invariant: an employee reporting to a manager in another company" do
+    run_full_import([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+    outsider = create(:employee)
+    expect(outsider.company_id).not_to eq(company.id)
+    Employee.find_by(external_id: "EMP-1").update_column(:manager_id, outsider.id)
+
+    failing = verification_check("no_cross_company_managers")
+
+    expect(failing.status).to eq("fail")
+    expect(failing.details).to eq("1 employee(s) reporting to a manager in another company")
+  end
+
+  it "detects a broken invariant: a blank required field" do
+    run_full_import([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+    Employee.find_by(external_id: "EMP-1").update_column(:first_name, "   ")
+
+    failing = verification_check("required_fields_present")
+
+    expect(failing.status).to eq("fail")
+    expect(failing.details).to eq("1 employee(s) missing a required field")
+  end
+
+  it "detects a broken invariant: an accepted row is absent from the database" do
+    run_full_import([
+      default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG"),
+      default_employee_row(external_id: "EMP-2", department_external_id: "DEPT-ENG"),
+    ])
+    Employee.find_by(external_id: "EMP-2").delete
+
+    failing = verification_check("imported_rows_now_exist")
+
+    expect(failing.status).to eq("fail")
+    expect(failing.details).to eq("1 accepted row(s) not found in the database")
+  end
+
+  # Duplicates cannot be constructed: the (company_id, external_id) unique
+  # index is the final guarantee, so the check passes and the database refuses
+  # to create the broken state it guards against.
+  it "cannot see duplicate external ids because the unique index prevents them" do
+    run_full_import([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+    existing = Employee.find_by(external_id: "EMP-1")
+
+    expect {
+      duplicate = existing.dup
+      duplicate.save!(validate: false)
+    }.to raise_error(ActiveRecord::RecordNotUnique)
+
+    check = verification_check("no_duplicate_external_ids")
+    expect(check.status).to eq("pass")
+    expect(check.details).to eq("0 external_id(s) duplicated within this company")
+  end
+
   it "records a summary audit event" do
     run_full_import([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
 
