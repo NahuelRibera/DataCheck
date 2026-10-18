@@ -117,4 +117,30 @@ RSpec.describe Imports::VerificationService, type: :service do
 
     expect(import_run.audit_events.pluck(:event_type)).to include("verification_completed")
   end
+
+  it "records an empty failed_checks list when every check passes" do
+    run_full_import([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+
+    Imports::VerificationService.new(import_run).call
+
+    event = import_run.audit_events.find_by!(event_type: "verification_completed")
+    expect(event.metadata["failed_checks"]).to eq([])
+    expect(event.metadata["failed"]).to eq(0)
+  end
+
+  it "records only the names of failed checks in the audit event" do
+    run_full_import([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+    employee = Employee.find_by(external_id: "EMP-1")
+    employee.update_column(:start_date, nil)
+
+    Imports::VerificationService.new(import_run).call
+
+    event = import_run.audit_events.find_by!(event_type: "verification_completed")
+    expect(event.metadata["failed_checks"]).to eq(["all_employees_have_start_date"])
+    expect(event.metadata["failed"]).to eq(1)
+    expect(event.message).to eq("Verification completed: #{event.metadata['passed']} passed, 1 failed.")
+    serialized = event.metadata.to_json
+    expect(serialized).not_to include(employee.first_name)
+    expect(serialized).not_to include(employee.email)
+  end
 end
