@@ -153,4 +153,4 @@ Open http://localhost:3000
 
 ## More detail
 
-`docs/architecture.md` covers the components and the tradeoffs behind them. `docs/incident-case-study.md` has the full debugging write up described above.
+`docs/import-workflow.md` documents each import step and status, the upload limits (including `IMPORT_MAX_UPLOAD_BYTES`), the CSV columns and the verification checks. `docs/architecture.md` covers the components and the tradeoffs behind them. `docs/incident-case-study.md` has the full debugging write up described above.
