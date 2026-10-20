@@ -141,4 +141,60 @@ RSpec.describe "Api::V1::ImportRuns", type: :request do
       expect(body["summary"].sum { |r| r["count"] }).to eq(3)
     end
   end
+
+  describe "error states" do
+    let(:personal_values) { %w[Ada Lovelace ada@example.com 50000.00] }
+
+    def expect_error(status, message)
+      expect(response).to have_http_status(status)
+      expect(JSON.parse(response.body)).to eq("error" => message)
+      personal_values.each { |value| expect(response.body).not_to include(value) }
+    end
+
+    it "rejects verification before execution with an error message" do
+      run_preflight([default_employee_row(department_external_id: "DEPT-ENG")])
+
+      get "/api/v1/import_runs/#{import_run.id}/verification"
+
+      expect_error(:unprocessable_content, "import has not been executed yet")
+    end
+
+    it "rejects dry run before preflight with an error message" do
+      post "/api/v1/import_runs/#{import_run.id}/dry_run"
+
+      expect_error(:unprocessable_content, "run preflight before dry run")
+    end
+
+    it "rejects execute without a prior dry run and writes nothing" do
+      run_preflight([default_employee_row(department_external_id: "DEPT-ENG")])
+
+      post "/api/v1/import_runs/#{import_run.id}/execute"
+
+      expect_error(:unprocessable_content, "run a dry run on an unblocked import before executing")
+      expect(Employee.count).to eq(0)
+    end
+
+    it "rejects execute of a blocked run without leaking row values" do
+      run_preflight([default_employee_row(department_external_id: "DEPT-GHOST")])
+
+      post "/api/v1/import_runs/#{import_run.id}/execute"
+
+      expect_error(:unprocessable_content, "run a dry run on an unblocked import before executing")
+    end
+
+    {
+      "GET" => %w[show issues verification],
+      "POST" => %w[preflight dry_run execute],
+    }.each do |verb, actions|
+      actions.each do |action|
+        it "returns 404 for an unknown id on #{verb} #{action}" do
+          path = action == "show" ? "/api/v1/import_runs/999999" : "/api/v1/import_runs/999999/#{action}"
+
+          public_send(verb.downcase, path)
+
+          expect_error(:not_found, "not found")
+        end
+      end
+    end
+  end
 end
