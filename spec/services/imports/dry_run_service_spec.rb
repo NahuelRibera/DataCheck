@@ -70,4 +70,25 @@ RSpec.describe Imports::DryRunService, type: :service do
     expect(reloaded.status).to eq("failed")
     expect(reloaded.audit_events.pluck(:event_type)).to include("import_failed")
   end
+  %w[profiling importing completed].each do |busy_status|
+    it "refuses a run that is #{busy_status} without logging or changing it" do
+      run_preflight([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+      stale = ImportRun.find(import_run.id)
+      ImportRun.where(id: import_run.id).update_all(status: busy_status)
+
+      expect { Imports::DryRunService.new(stale).call }.to raise_error(Imports::StaleStateError)
+
+      reloaded = import_run.reload
+      expect(reloaded.status).to eq(busy_status)
+      expect(reloaded.audit_events.pluck(:event_type)).not_to include("dry_run_started", "import_failed")
+    end
+  end
+
+  it "keeps dry_run_started in the audit trail when the dry run then fails" do
+    fresh_run = create(:import_run, company: company)
+
+    expect { Imports::DryRunService.new(fresh_run).call }.to raise_error(Errno::ENOENT)
+
+    expect(fresh_run.reload.audit_events.chronological.pluck(:event_type)).to eq(%w[dry_run_started import_failed])
+  end
 end

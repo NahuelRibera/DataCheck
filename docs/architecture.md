@@ -74,6 +74,14 @@ flowchart LR
    `MigrationPlan` classifies each row against the current database state.
    Execution wraps its pass in one transaction and refuses to run at all if
    the run is still blocked.
+   Preflight, dry run and execute each start by re-reading the run under a
+   row lock (`ImportRun#with_status_lock`) and re-checking its status, so a
+   double click or a parallel API call cannot start the same step twice:
+   preflight claims `profiling` and execute claims `importing`, while dry
+   run holds the lock for its whole computation. A run that another step
+   owns (or that is already `completed`, for dry run and execute) is refused
+   with `Imports::StaleStateError`, answered as a redirect with an alert
+   (HTML) or a 422 (API), and is left unchanged.
 5. `VerificationService` re-derives a handful of integrity checks straight
    from the database after execution -- it does not trust the counters it
    just wrote, on purpose.

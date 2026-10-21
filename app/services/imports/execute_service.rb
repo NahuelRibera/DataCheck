@@ -5,21 +5,32 @@ module Imports
   class ExecuteService
     class ExecutionBlockedError < StandardError; end
 
+    REFUSED_STATUSES = (ImportRun::IN_PROGRESS_STATUSES + %w[completed]).freeze
+
     def initialize(import_run)
       @import_run = import_run
     end
 
     def call
-      if import_run.blocked?
-        import_run.log_event!(
-          "execution_blocked",
-          "Execution refused: #{import_run.blocking_issue_count} blocking issue(s) remain."
-        )
-        raise ExecutionBlockedError, "cannot execute while blocking issues remain"
+      # The blocked check and the move to "importing" happen under the
+      # run's row lock, so of two concurrent executes only one can start;
+      # the other sees "importing" (or "completed") and is refused.
+      blocked = false
+      import_run.with_status_lock(refused: REFUSED_STATUSES) do
+        if import_run.blocked?
+          blocked = true
+          import_run.log_event!(
+            "execution_blocked",
+            "Execution refused: #{import_run.blocking_issue_count} blocking issue(s) remain."
+          )
+        else
+          import_run.update!(status: "importing", started_at: Time.current)
+          import_run.log_event!("import_started", "Migration execution started.")
+        end
       end
-
-      import_run.update!(status: "importing", started_at: Time.current)
-      import_run.log_event!("import_started", "Migration execution started.")
+      # Raised only once the lock's transaction has committed: raising
+      # inside it would roll back the execution_blocked event.
+      raise ExecutionBlockedError, "cannot execute while blocking issues remain" if blocked
 
       result = nil
       ActiveRecord::Base.transaction do
@@ -43,10 +54,11 @@ module Imports
       )
 
       result
-    rescue ExecutionBlockedError
-      # Already logged as "execution_blocked" above; a refusal is not a
-      # crash, so it must not fall into the StandardError handler below and
-      # get relabeled "failed" (or double-logged).
+    rescue ExecutionBlockedError, StaleStateError
+      # Already logged as "execution_blocked" above, or refused because
+      # another request owns the run; a refusal is not a crash, so it must
+      # not fall into the StandardError handler below and get relabeled
+      # "failed" (or double-logged).
       raise
     rescue StandardError => e
       # Broad on purpose: ANY other failure here -- a rolled-back

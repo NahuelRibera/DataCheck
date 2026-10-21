@@ -1,4 +1,7 @@
 class ImportRunsController < ApplicationController
+  NOT_READY_ALERT = "Run a dry run on an unblocked import before executing.".freeze
+  BUSY_ALERT = "This import run is already being processed or completed.".freeze
+
   before_action :set_import_run, only: [:show, :preflight, :dry_run, :execute]
 
   def index
@@ -44,6 +47,8 @@ class ImportRunsController < ApplicationController
     else
       redirect_to import_run_path(@import_run), alert: "Preflight failed. See audit trail for details."
     end
+  rescue Imports::StaleStateError
+    redirect_to import_run_path(@import_run), alert: BUSY_ALERT
   end
 
   def dry_run
@@ -53,16 +58,22 @@ class ImportRunsController < ApplicationController
 
     Imports::DryRunService.new(@import_run).call
     redirect_to import_run_path(@import_run), notice: "Dry run completed."
+  rescue Imports::StaleStateError
+    redirect_to import_run_path(@import_run), alert: BUSY_ALERT
   end
 
   def execute
     unless @import_run.ready_for_execution?
-      redirect_to import_run_path(@import_run), alert: "Run a dry run on an unblocked import before executing." and return
+      redirect_to import_run_path(@import_run), alert: NOT_READY_ALERT and return
     end
 
     Imports::ExecuteService.new(@import_run).call
     Imports::VerificationService.new(@import_run).call
     redirect_to import_run_path(@import_run), notice: "Migration executed and verified."
+  rescue Imports::StaleStateError
+    # Another request already started or finished this run between the
+    # check above and the service's row lock.
+    redirect_to import_run_path(@import_run), alert: NOT_READY_ALERT
   rescue Imports::ExecuteService::ExecutionBlockedError
     redirect_to import_run_path(@import_run), alert: "Execution refused: blocking issues remain."
   rescue ActiveRecord::RecordInvalid => e

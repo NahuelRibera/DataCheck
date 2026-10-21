@@ -18,8 +18,12 @@ module Imports
     end
 
     def call
-      import_run.update!(status: "profiling")
-      import_run.log_event!("preflight_started", "Preflight profiling started.")
+      # "profiling" is claimed under the run's row lock, so a concurrent
+      # dry run or execute is refused instead of reading files this rewrites.
+      import_run.with_status_lock(refused: ImportRun::IN_PROGRESS_STATUSES) do
+        import_run.update!(status: "profiling")
+        import_run.log_event!("preflight_started", "Preflight profiling started.")
+      end
 
       known_departments_file = write_temp_list(company.departments.pluck(:external_id))
       known_employees_file = write_temp_list(company.employees.pluck(:external_id))
@@ -48,6 +52,19 @@ module Imports
 
       persist_result(result)
       true
+    rescue StaleStateError
+      raise
+    rescue StandardError => e
+      # "profiling" refuses every other step, so an unexpected exception
+      # must not leave the run stuck in it. As in ExecuteService, only the
+      # class name is recorded.
+      import_run.update!(status: "failed")
+      import_run.log_event!(
+        "import_failed",
+        "Preflight failed unexpectedly (#{e.class.name}).",
+        metadata: { error_class: e.class.name }
+      )
+      raise
     ensure
       known_departments_file&.close!
       known_employees_file&.close!

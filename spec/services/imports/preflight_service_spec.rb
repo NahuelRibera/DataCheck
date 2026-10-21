@@ -82,4 +82,31 @@ RSpec.describe Imports::PreflightService, type: :service do
     expect(import_run.reload.status).to eq("failed")
     expect(import_run.audit_events.pluck(:event_type)).to include("import_failed")
   end
+  %w[profiling importing].each do |busy_status|
+    it "refuses a run that is #{busy_status} without logging or changing it" do
+      write_source_csv(import_run, [default_employee_row])
+      stale = ImportRun.find(import_run.id)
+      ImportRun.where(id: import_run.id).update_all(status: busy_status)
+
+      expect { Imports::PreflightService.new(stale).call }.to raise_error(Imports::StaleStateError)
+
+      reloaded = import_run.reload
+      expect(reloaded.status).to eq(busy_status)
+      expect(reloaded.audit_events).to be_empty
+    end
+  end
+
+  # "profiling" now refuses every other step, so an unexpected exception
+  # must not leave the run stuck in it.
+  it "marks the run failed, not stuck in profiling, when profiling raises" do
+    write_source_csv(import_run, [default_employee_row])
+    allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT, "python3")
+
+    expect { Imports::PreflightService.new(import_run).call }.to raise_error(Errno::ENOENT)
+
+    reloaded = import_run.reload
+    expect(reloaded.status).to eq("failed")
+    event = reloaded.audit_events.find_by!(event_type: "import_failed")
+    expect(event.metadata["error_class"]).to eq("Errno::ENOENT")
+  end
 end

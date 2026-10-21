@@ -1,5 +1,8 @@
 class ImportRun < ApplicationRecord
   STATUSES = %w[uploaded profiling blocked ready dry_run_completed importing completed failed].freeze
+  # A step is running and owns the run's files and counters; no other step
+  # may start until it finishes.
+  IN_PROGRESS_STATUSES = %w[profiling importing].freeze
 
   belongs_to :company
   has_many :import_issues, dependent: :destroy
@@ -20,6 +23,23 @@ class ImportRun < ApplicationRecord
 
   def ready_for_execution?
     status == "dry_run_completed" && !blocked?
+  end
+
+  # Re-reads this run under SELECT ... FOR UPDATE and raises
+  # Imports::StaleStateError if its current status is one of +refused+,
+  # then yields inside the same transaction, so the check and the
+  # transition the block makes cannot interleave with another request.
+  #
+  # reload(lock: true) rather than with_lock/lock!: the decision must come
+  # from the locked row, and lock! refuses a record with unsaved changes
+  # instead of discarding them.
+  def with_status_lock(refused:)
+    transaction do
+      reload(lock: true)
+      raise Imports::StaleStateError, "import run is #{status}" if status.in?(refused)
+
+      yield
+    end
   end
 
   def log_event!(event_type, message, metadata: {})
