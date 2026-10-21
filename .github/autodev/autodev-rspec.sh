@@ -23,7 +23,7 @@ cleanup() {
   "$PG_BIN/pg_ctl" -D "$ROOT/data" -m immediate stop >/dev/null 2>&1 || true
   rm -rf "$ROOT"
 }
-trap cleanup EXIT
+trap cleanup EXIT   # bash also runs it when a timeout kills the command (tests/test_templates.py)
 
 # LC_ALL only for the server tools (PostgreSQL refuses to start without a valid locale on some hosts);
 # Ruby and RSpec keep the caller's locale and encoding.

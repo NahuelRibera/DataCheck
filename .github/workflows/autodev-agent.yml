@@ -89,8 +89,13 @@ jobs:
         # outside the working tree, so the session can run it but not change it. verify is unaffected.
         run: |
           set -euo pipefail
-          ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1 \
-            || { sudo apt-get update -qq && sudo apt-get install -y -qq postgresql; }
+          # ubuntu-24.04 runners ship the server binaries with the service disabled. The fallback install
+          # starts a system cluster, which is stopped at once: only autodev-rspec's own clusters may run.
+          if ! ls /usr/lib/postgresql/*/bin/initdb >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq postgresql
+            sudo systemctl disable --now postgresql >/dev/null 2>&1 || true
+          fi
+          ! systemctl is-active --quiet postgresql || { echo "a system PostgreSQL is running"; exit 1; }
           sudo install -o root -g root -m 0755 .github/autodev/autodev-rspec.sh /usr/local/bin/autodev-rspec
           mkdir -p "$RUNNER_TEMP/autodev"
           cat > "$RUNNER_TEMP/autodev/project-notes.txt" <<'NOTES'
