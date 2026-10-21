@@ -104,6 +104,80 @@ RSpec.describe "Api::V1::ImportRuns", type: :request do
     end
   end
 
+  describe "GET /api/v1/import_runs/:id/verification on an executed run" do
+    before do
+      run_preflight([default_employee_row(department_external_id: "DEPT-ENG")])
+      post "/api/v1/import_runs/#{import_run.id}/dry_run"
+      post "/api/v1/import_runs/#{import_run.id}/execute"
+      # The requests above changed the run through other instances; without
+      # this the memoized record is stale, and an update! that removes
+      # "verification" changes nothing and issues no UPDATE at all.
+      import_run.reload
+    end
+
+    def verification_events
+      import_run.audit_events.where(event_type: "verification_completed").count
+    end
+
+    it "serves repeated reads without recording events or touching the run" do
+      events = import_run.audit_events.count
+      metadata = import_run.metadata
+      updated_at = import_run.updated_at
+
+      2.times do
+        get "/api/v1/import_runs/#{import_run.id}/verification"
+        expect(response).to have_http_status(:ok)
+        expect(JSON.parse(response.body)).to eq(metadata["verification"])
+      end
+
+      import_run.reload
+      expect(import_run.audit_events.count).to eq(events)
+      expect(import_run.metadata).to eq(metadata)
+      expect(import_run.updated_at).to eq(updated_at)
+    end
+
+    it "returns the checks stored by execute rather than recomputing them" do
+      stored = import_run.metadata["verification"]
+      stored.first["details"] = "as stored by execute"
+      import_run.update_columns(metadata: import_run.metadata.merge("verification" => stored))
+      expect(Imports::VerificationService).not_to receive(:new)
+
+      get "/api/v1/import_runs/#{import_run.id}/verification"
+
+      body = JSON.parse(response.body)
+      expect(body.first["details"]).to eq("as stored by execute")
+      expect(body.map(&:keys)).to all(eq(%w[name status details]))
+    end
+
+    it "computes and stores the result once when a completed run has none" do
+      check_names = import_run.metadata["verification"].map { |check| check["name"] }
+      import_run.update_columns(metadata: import_run.metadata.except("verification"))
+      events = verification_events
+
+      get "/api/v1/import_runs/#{import_run.id}/verification"
+      first = JSON.parse(response.body)
+      get "/api/v1/import_runs/#{import_run.id}/verification"
+
+      expect(response).to have_http_status(:ok)
+      expect(first.map { |check| check["name"] }).to eq(check_names)
+      expect(first).to all(include("status" => "pass"))
+      expect(JSON.parse(response.body)).to eq(first)
+      expect(import_run.reload.metadata["verification"]).to eq(first)
+      expect(verification_events).to eq(events + 1)
+    end
+
+    %w[ready dry_run_completed importing failed].each do |status|
+      it "keeps the existing 422 for a #{status} run even with a stored result" do
+        import_run.update_columns(status: status)
+
+        get "/api/v1/import_runs/#{import_run.id}/verification"
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(JSON.parse(response.body)).to eq("error" => "import has not been executed yet")
+      end
+    end
+  end
+
   describe "GET /api/v1/import_runs/:id/issues" do
     it "returns the issues for a run" do
       run_preflight([default_employee_row(department_external_id: "DEPT-GHOST")])

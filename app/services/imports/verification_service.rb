@@ -8,6 +8,22 @@ module Imports
   class VerificationService
     Check = Struct.new(:name, :status, :details, keyword_init: true)
 
+    # The checks stored by the run's last verification, or nil if it has none.
+    def self.stored_checks(import_run)
+      stored = import_run.metadata["verification"]
+      return if stored.blank?
+
+      stored.map { |check| Check.new(**check.symbolize_keys.slice(*Check.members)) }
+    end
+
+    # For reads: the stored checks, so polling a run never writes to it.
+    # A completed run verified before results were stored has none; it is
+    # verified (and the result stored) exactly once, under the run's row lock
+    # so that concurrent first reads wait for it instead of verifying again.
+    def self.stored_or_call(import_run)
+      stored_checks(import_run) || import_run.with_lock { stored_checks(import_run) || new(import_run).call }
+    end
+
     def initialize(import_run)
       @import_run = import_run
       @company = import_run.company
