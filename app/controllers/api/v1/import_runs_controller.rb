@@ -1,6 +1,9 @@
 module Api
   module V1
     class ImportRunsController < BaseController
+      NOT_READY_ERROR = "run a dry run on an unblocked import before executing".freeze
+      BUSY_ERROR = "import run is already being processed or completed".freeze
+
       before_action :set_import_run, only: [:show, :issues, :preflight, :dry_run, :execute, :verification]
 
       def index
@@ -28,6 +31,8 @@ module Api
         else
           render json: { error: "preflight failed", import_run: serialize_run(@import_run.reload) }, status: :unprocessable_content
         end
+      rescue Imports::StaleStateError
+        render json: { error: BUSY_ERROR }, status: :unprocessable_content
       end
 
       def dry_run
@@ -37,16 +42,22 @@ module Api
 
         Imports::DryRunService.new(@import_run).call
         render json: serialize_run(@import_run.reload, detailed: true)
+      rescue Imports::StaleStateError
+        render json: { error: BUSY_ERROR }, status: :unprocessable_content
       end
 
       def execute
         unless @import_run.ready_for_execution?
-          return render json: { error: "run a dry run on an unblocked import before executing" }, status: :unprocessable_content
+          return render json: { error: NOT_READY_ERROR }, status: :unprocessable_content
         end
 
         Imports::ExecuteService.new(@import_run).call
         Imports::VerificationService.new(@import_run).call
         render json: serialize_run(@import_run.reload, detailed: true)
+      rescue Imports::StaleStateError
+        # Another request already started or finished this run between the
+        # check above and the service's row lock.
+        render json: { error: NOT_READY_ERROR }, status: :unprocessable_content
       end
 
       def verification

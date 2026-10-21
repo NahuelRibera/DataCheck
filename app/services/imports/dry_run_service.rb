@@ -8,27 +8,40 @@ module Imports
       @import_run = import_run
     end
 
+    REFUSED_STATUSES = (ImportRun::IN_PROGRESS_STATUSES + %w[completed]).freeze
+
     def call
-      import_run.log_event!("dry_run_started", "Dry run started.")
+      import_run.with_status_lock(refused: REFUSED_STATUSES) do
+        import_run.log_event!("dry_run_started", "Dry run started.")
+      end
 
-      result = MigrationPlan.new(import_run, persist: false).call
+      # There is no "dry running" status to claim, so the row lock is held
+      # for the whole computation instead: a concurrent preflight or execute
+      # waits for it, and this can never overwrite a run they moved on.
+      # dry_run_started is committed above so it survives a failure here.
+      result = nil
+      import_run.with_status_lock(refused: REFUSED_STATUSES) do
+        result = MigrationPlan.new(import_run, persist: false).call
 
-      import_run.update!(
-        status: "dry_run_completed",
-        create_count: result.create_count,
-        update_count: result.update_count,
-        skip_count: result.skip_count,
-        reject_count: result.reject_count
-      )
+        import_run.update!(
+          status: "dry_run_completed",
+          create_count: result.create_count,
+          update_count: result.update_count,
+          skip_count: result.skip_count,
+          reject_count: result.reject_count
+        )
 
-      import_run.log_event!(
-        "dry_run_completed",
-        "Dry run computed create=#{result.create_count} update=#{result.update_count} " \
-        "skip=#{result.skip_count} reject=#{result.reject_count}.",
-        metadata: result.to_h
-      )
+        import_run.log_event!(
+          "dry_run_completed",
+          "Dry run computed create=#{result.create_count} update=#{result.update_count} " \
+          "skip=#{result.skip_count} reject=#{result.reject_count}.",
+          metadata: result.to_h
+        )
+      end
 
       result
+    rescue StaleStateError
+      raise
     rescue StandardError => e
       # Same reasoning as ExecuteService: the UI/API already guard against
       # calling this before preflight has produced a normalized CSV, but a

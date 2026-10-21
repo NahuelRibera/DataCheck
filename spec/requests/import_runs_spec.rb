@@ -129,6 +129,54 @@ RSpec.describe "ImportRuns", type: :request do
     end
   end
 
+  describe "a run that changed after the controller loaded it" do
+    let(:run) { create(:import_run, company: company) }
+
+    before do
+      write_source_csv(run, [default_employee_row(department_external_id: "DEPT-ENG")])
+      post "/import_runs/#{run.id}/preflight"
+      post "/import_runs/#{run.id}/dry_run"
+    end
+
+    it "refuses a second execute with the existing alert and one import_started event" do
+      post "/import_runs/#{run.id}/execute"
+      expect(run.reload.status).to eq("completed")
+      allow_any_instance_of(ImportRun).to receive(:ready_for_execution?).and_return(true)
+
+      post "/import_runs/#{run.id}/execute"
+
+      expect(response).to redirect_to(import_run_path(run))
+      expect(flash[:alert]).to eq("Run a dry run on an unblocked import before executing.")
+      expect(run.audit_events.where(event_type: "import_started").count).to eq(1)
+      expect(run.reload.status).to eq("completed")
+      expect(Employee.count).to eq(1)
+    end
+
+    it "refuses execute when another request already started importing" do
+      allow_any_instance_of(ImportRun).to receive(:ready_for_execution?) do |stale|
+        ImportRun.where(id: stale.id).update_all(status: "importing")
+        true
+      end
+
+      post "/import_runs/#{run.id}/execute"
+
+      expect(response).to redirect_to(import_run_path(run))
+      expect(flash[:alert]).to eq("Run a dry run on an unblocked import before executing.")
+      expect(run.audit_events.where(event_type: "import_started")).to be_empty
+      expect(Employee.count).to eq(0)
+    end
+
+    it "refuses preflight on a run another request is importing" do
+      ImportRun.where(id: run.id).update_all(status: "importing")
+
+      post "/import_runs/#{run.id}/preflight"
+
+      expect(response).to redirect_to(import_run_path(run))
+      expect(flash[:alert]).to eq("This import run is already being processed or completed.")
+      expect(run.reload.status).to eq("importing")
+    end
+  end
+
   describe "GET /import_runs/:id issue summary" do
     let(:run) { create(:import_run, company: company) }
 

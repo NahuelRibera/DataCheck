@@ -182,6 +182,75 @@ RSpec.describe "Api::V1::ImportRuns", type: :request do
       expect_error(:unprocessable_content, "run a dry run on an unblocked import before executing")
     end
 
+    # The controller's pre-check reads the run once; these simulate a second
+    # request moving it on between that read and the service's row lock.
+    context "when the run changed after the controller loaded it" do
+      before do
+        run_preflight([default_employee_row(department_external_id: "DEPT-ENG")])
+        post "/api/v1/import_runs/#{import_run.id}/dry_run"
+      end
+
+      it "refuses a second execute with the existing error and one import_started event" do
+        post "/api/v1/import_runs/#{import_run.id}/execute"
+        expect(response).to have_http_status(:ok)
+        allow_any_instance_of(ImportRun).to receive(:ready_for_execution?).and_return(true)
+
+        post "/api/v1/import_runs/#{import_run.id}/execute"
+
+        expect_error(:unprocessable_content, "run a dry run on an unblocked import before executing")
+        expect(import_run.audit_events.where(event_type: "import_started").count).to eq(1)
+        expect(import_run.reload.status).to eq("completed")
+        expect(Employee.count).to eq(1)
+      end
+
+      it "refuses execute when another request already started importing" do
+        allow_any_instance_of(ImportRun).to receive(:ready_for_execution?) do |run|
+          ImportRun.where(id: run.id).update_all(status: "importing")
+          true
+        end
+
+        post "/api/v1/import_runs/#{import_run.id}/execute"
+
+        expect_error(:unprocessable_content, "run a dry run on an unblocked import before executing")
+        expect(import_run.audit_events.where(event_type: "import_started")).to be_empty
+        expect(import_run.reload.status).to eq("importing")
+        expect(Employee.count).to eq(0)
+      end
+
+      it "answers a run that became blocked under the lock with the existing blocked 422" do
+        allow_any_instance_of(ImportRun).to receive(:ready_for_execution?) do |run|
+          ImportRun.where(id: run.id).update_all(blocking_issue_count: 1)
+          true
+        end
+
+        post "/api/v1/import_runs/#{import_run.id}/execute"
+
+        expect_error(:unprocessable_content, "execution refused: blocking issues remain")
+        expect(import_run.audit_events.pluck(:event_type)).to include("execution_blocked")
+        expect(Employee.count).to eq(0)
+      end
+
+      it "refuses a dry run on a run another request is importing" do
+        allow_any_instance_of(ImportRun).to receive(:status).and_wrap_original do |original|
+          ImportRun.where(id: import_run.id).update_all(status: "importing")
+          original.call
+        end
+
+        post "/api/v1/import_runs/#{import_run.id}/dry_run"
+
+        expect_error(:unprocessable_content, "import run is already being processed or completed")
+      end
+
+      it "refuses preflight on a run another request is importing" do
+        ImportRun.where(id: import_run.id).update_all(status: "importing")
+
+        post "/api/v1/import_runs/#{import_run.id}/preflight"
+
+        expect_error(:unprocessable_content, "import run is already being processed or completed")
+        expect(import_run.reload.status).to eq("importing")
+      end
+    end
+
     {
       "GET" => %w[show issues verification],
       "POST" => %w[preflight dry_run execute],
