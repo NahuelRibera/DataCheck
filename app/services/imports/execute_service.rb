@@ -59,7 +59,14 @@ module Imports
       # rolled back any partial employee writes; this only updates
       # ImportRun's own status.
       import_run.update!(status: "failed")
-      import_run.log_event!("import_failed", "Migration execution failed and was rolled back: #{e.message.truncate(300)}")
+      # Exception text is deliberately left out: database and validation
+      # errors can embed record values (emails, salaries). Only the class
+      # name is recorded.
+      import_run.log_event!(
+        "import_failed",
+        "Migration execution failed and was rolled back (#{e.class.name}).",
+        metadata: { error_class: e.class.name }
+      )
       raise
     end
 

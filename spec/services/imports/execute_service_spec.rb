@@ -56,6 +56,33 @@ RSpec.describe Imports::ExecuteService, type: :service do
     expect(reloaded.audit_events.pluck(:event_type)).to include("import_failed")
   end
 
+  it "keeps exception text (fake email/salary) out of the import_failed audit event and the log" do
+    run_preflight([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+    secret = "jane.doe@example.invalid salary=987654"
+    plan = instance_double(Imports::MigrationPlan)
+    allow(Imports::MigrationPlan).to receive(:new).and_return(plan)
+    allow(plan).to receive(:call).and_raise(ActiveRecord::StatementInvalid, "PG::Error: key (email)=(#{secret})")
+
+    log = StringIO.new
+    original_logger = Rails.logger
+    Rails.logger = ActiveSupport::Logger.new(log)
+    begin
+      expect { Imports::ExecuteService.new(import_run).call }.to raise_error(ActiveRecord::StatementInvalid)
+    ensure
+      Rails.logger = original_logger
+    end
+
+    reloaded = import_run.reload
+    expect(reloaded.status).to eq("failed")
+    event = reloaded.audit_events.find_by!(event_type: "import_failed")
+    expect(event.metadata["error_class"]).to eq("ActiveRecord::StatementInvalid")
+    serialized = [event.message, event.metadata.to_json].join(" ")
+    ["jane.doe", "example.invalid", "987654", "PG::Error"].each do |fragment|
+      expect(serialized).not_to include(fragment)
+      expect(log.string).not_to include(fragment)
+    end
+  end
+
   it "is idempotent: running the same clean import twice creates zero duplicates" do
     rows = [
       default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG"),
