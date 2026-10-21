@@ -71,6 +71,7 @@ class ImportRun < ApplicationRecord
 
   def save_source_csv!(io)
     FileUtils.mkdir_p(storage_dir)
-    File.open(source_csv_path, "wb") { |f| f.write(io.read) }
+    # Chunked copy: memory use stays flat however large the upload is.
+    File.open(source_csv_path, "wb") { |f| IO.copy_stream(io, f) }
   end
 end
