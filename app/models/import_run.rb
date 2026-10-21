@@ -3,6 +3,9 @@ class ImportRun < ApplicationRecord
   # A step is running and owns the run's files and counters; no other step
   # may start until it finishes.
   IN_PROGRESS_STATUSES = %w[profiling importing].freeze
+  # A step still in progress after this long died with its process (the migration's own transaction has
+  # rolled back), and preflight may start the run over, as it always could.
+  IN_PROGRESS_EXPIRES_AFTER = 1.hour
 
   belongs_to :company
   has_many :import_issues, dependent: :destroy
@@ -33,12 +36,16 @@ class ImportRun < ApplicationRecord
   # reload(lock: true) rather than with_lock/lock!: the decision must come
   # from the locked row, and lock! refuses a record with unsaved changes
   # instead of discarding them.
-  def with_status_lock(refused:)
+  #
+  # With +take_over_expired+, an in-progress status older than IN_PROGRESS_EXPIRES_AFTER is not refused;
+  # the block receives that status so the caller can record what it recovered from.
+  def with_status_lock(refused:, take_over_expired: false)
     transaction do
       reload(lock: true)
-      raise Imports::StaleStateError, "import run is #{status}" if status.in?(refused)
+      expired = take_over_expired && status.in?(IN_PROGRESS_STATUSES) && updated_at < IN_PROGRESS_EXPIRES_AFTER.ago
+      raise Imports::StaleStateError, "import run is #{status}" if status.in?(refused) && !expired
 
-      yield
+      yield(expired ? status : nil)
     end
   end
 

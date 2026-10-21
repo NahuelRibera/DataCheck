@@ -109,4 +109,35 @@ RSpec.describe Imports::PreflightService, type: :service do
     event = reloaded.audit_events.find_by!(event_type: "import_failed")
     expect(event.metadata["error_class"]).to eq("Errno::ENOENT")
   end
+
+  # A process that dies mid-step (a deploy, a killed worker) leaves its status behind; the migration's
+  # own transaction has rolled back. Preflight was always the way to start over, and must stay so.
+  %w[profiling importing].each do |stuck_status|
+    it "restarts a run left #{stuck_status} by a step that died over an hour ago" do
+      write_source_csv(import_run, [default_employee_row(department_external_id: "DEPT-ENG")])
+      ImportRun.where(id: import_run.id).update_all(status: stuck_status, updated_at: 2.hours.ago)
+
+      expect(Imports::PreflightService.new(ImportRun.find(import_run.id)).call).to be(true)
+
+      reloaded = import_run.reload
+      expect(reloaded.status).to eq("ready")
+      started = reloaded.audit_events.find_by!(event_type: "preflight_started")
+      expect(started.metadata).to eq("recovered_from" => stuck_status)
+    end
+
+    it "still refuses a run that is #{stuck_status} right now" do
+      write_source_csv(import_run, [default_employee_row])
+      ImportRun.where(id: import_run.id).update_all(status: stuck_status, updated_at: 59.minutes.ago)
+
+      expect { Imports::PreflightService.new(ImportRun.find(import_run.id)).call }.to raise_error(Imports::StaleStateError)
+    end
+  end
+
+  it "keeps dry run and execute refusing a stale in-progress run: only preflight starts over" do
+    write_source_csv(import_run, [default_employee_row(department_external_id: "DEPT-ENG")])
+    ImportRun.where(id: import_run.id).update_all(status: "importing", updated_at: 2.hours.ago)
+
+    expect { Imports::DryRunService.new(ImportRun.find(import_run.id)).call }.to raise_error(Imports::StaleStateError)
+    expect { Imports::ExecuteService.new(ImportRun.find(import_run.id)).call }.to raise_error(Imports::StaleStateError)
+  end
 end

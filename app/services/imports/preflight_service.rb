@@ -20,9 +20,11 @@ module Imports
     def call
       # "profiling" is claimed under the run's row lock, so a concurrent
       # dry run or execute is refused instead of reading files this rewrites.
-      import_run.with_status_lock(refused: ImportRun::IN_PROGRESS_STATUSES) do
+      # A step that died long ago is taken over, and the audit trail says so.
+      import_run.with_status_lock(refused: ImportRun::IN_PROGRESS_STATUSES, take_over_expired: true) do |expired|
         import_run.update!(status: "profiling")
-        import_run.log_event!("preflight_started", "Preflight profiling started.")
+        import_run.log_event!("preflight_started", "Preflight profiling started.",
+                              metadata: expired ? { recovered_from: expired } : {})
       end
 
       known_departments_file = write_temp_list(company.departments.pluck(:external_id))
