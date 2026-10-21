@@ -66,6 +66,11 @@ in-memory counters. Each check is stored with a `pass` or `fail` status and a
 details string, and the audit event `verification_completed` records the
 passed and failed counts and the names of any failed checks.
 
+`GET /api/v1/import_runs/:id/verification` returns these stored results and
+never re-runs verification, so polling it writes nothing. The only exception
+is a completed run with no stored result, which is verified once (under the
+run's row lock) and stored; runs that are not `completed` get a 422.
+
 | Check | What it verifies |
 | --- | --- |
 | `counts_reconcile` | The run's recorded create + update + skip equals the number of non-blocked rows in the normalized CSV, and the recorded reject count equals the number of blocked rows. Passes trivially if the normalized file is absent. |

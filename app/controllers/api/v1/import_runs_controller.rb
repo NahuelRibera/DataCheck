@@ -54,7 +54,7 @@ module Api
           return render json: { error: "import has not been executed yet" }, status: :unprocessable_content
         end
 
-        checks = Imports::VerificationService.new(@import_run).call
+        checks = Imports::VerificationService.stored_or_call(@import_run)
         render json: checks.map(&:to_h)
       end
 

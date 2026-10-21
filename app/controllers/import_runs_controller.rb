@@ -35,7 +35,7 @@ class ImportRunsController < ApplicationController
     @issues = @import_run.import_issues.with_severity(@issue_filter[:severity])
                          .with_issue_type(@issue_filter[:issue_type]).order(:severity, :row_number)
     @audit_events = @import_run.audit_events.chronological
-    @verification_checks = verification_checks_for(@import_run)
+    @verification_checks = Imports::VerificationService.stored_checks(@import_run) || []
   end
 
   def preflight
@@ -73,12 +73,5 @@ class ImportRunsController < ApplicationController
 
   def set_import_run
     @import_run = ImportRun.find(params[:id])
-  end
-
-  def verification_checks_for(import_run)
-    stored = import_run.metadata["verification"]
-    return [] if stored.blank?
-
-    stored.map { |check| Imports::VerificationService::Check.new(check.symbolize_keys) }
   end
 end
