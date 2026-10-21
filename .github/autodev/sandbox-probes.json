@@ -14,8 +14,13 @@
   },
   {
     "name": "ruby-bundle",
-    "why": "the pre-installed gems load offline (RSpec itself needs PostgreSQL, which only the verify job has)",
+    "why": "the pre-installed gems load offline",
     "script": "bundle exec rspec --version || fail \"bundle exec rspec\"\nfor f in app/services/imports/*.rb app/graphql/*.rb; do\n  [ -e \"$f\" ] || continue\n  bundle exec ruby -wc \"$f\" >/dev/null || fail \"ruby -c $f\"\ndone"
+  },
+  {
+    "name": "rspec-postgres",
+    "why": "the whole RSpec suite runs inside the sandbox through autodev-rspec's throwaway PostgreSQL, which the session cannot change and which leaves nothing behind",
+    "script": "runner=\"$(command -v autodev-rspec)\" || fail \"autodev-rspec is not installed\"\n[ -O \"$runner\" ] && fail \"autodev-rspec is owned by the session user\"\n[ -w \"$runner\" ] && fail \"autodev-rspec is writable\"\nblocked \"change autodev-rspec\" sh -c \"echo '#' >> '$runner'\"\nautodev-rspec || fail \"autodev-rspec (whole suite)\"\npgrep -f autodev-pg >/dev/null && fail \"a PostgreSQL server outlived the command\"\nls -d \"${TMPDIR:-/tmp}\"/autodev-pg.* >/dev/null 2>&1 && fail \"the throwaway cluster was not deleted\"\necho \"throwaway PostgreSQL works\""
   },
   {
     "name": "typescript",
