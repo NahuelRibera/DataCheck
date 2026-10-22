@@ -19,6 +19,25 @@ module Imports
       path = import_run.source_csv_path
       return nil unless File.exist?(path)
 
+      Rails.cache.fetch(cache_key(path), skip_nil: true) { run_profiler(path) }
+    rescue SystemCallError => e
+      Rails.logger.warn("[Imports::PreviewService] #{e.class}")
+      nil
+    end
+
+    private
+
+    attr_reader :import_run
+
+    # Keyed by run id, file size and mtime so replacing the file invalidates
+    # the entry. Failures return nil, which Rails.cache.fetch does not store
+    # (skip_nil).
+    def cache_key(path)
+      stat = File.stat(path)
+      ["imports/preview/v1", import_run.id, stat.size, stat.mtime.to_i, stat.mtime.nsec, PREVIEW_ROWS].join("/")
+    end
+
+    def run_profiler(path)
       stdout, stderr, status = Open3.capture3(
         PYTHON_BIN, SCRIPT_PATH.to_s,
         "--csv", path.to_s,
@@ -35,9 +54,5 @@ module Imports
       Rails.logger.warn("[Imports::PreviewService] #{e.class}")
       nil
     end
-
-    private
-
-    attr_reader :import_run
   end
 end
