@@ -25,8 +25,9 @@ class GraphqlController < ApplicationController
   rescue InvalidVariables
     render_invalid_variables
   rescue StandardError => e
-    raise e unless Rails.env.development?
-    handle_error_in_development(e)
+    return handle_error_in_development(e) if Rails.env.development?
+
+    render_internal_error(e)
   end
 
   private
@@ -59,6 +60,12 @@ class GraphqlController < ApplicationController
   def render_invalid_variables
     # Generic on purpose: never echo the submitted input.
     render json: { errors: [{ message: "Invalid variables parameter" }] }, status: :bad_request
+  end
+
+  def render_internal_error(error)
+    # Class name only: the message may echo query text or record values.
+    logger.error "GraphQL execution failed: #{error.class.name}"
+    render json: { errors: [{ message: "Internal server error" }] }, status: :internal_server_error
   end
 
   def handle_error_in_development(e)
