@@ -2,6 +2,10 @@ class ImportRunsController < ApplicationController
   NOT_READY_ALERT = "Run a dry run on an unblocked import before executing.".freeze
   BUSY_ALERT = "This import run is already being processed or completed.".freeze
 
+  CREATE_FAILED_ALERT = "Could not create import run. Check the upload and try again.".freeze
+  CREATE_MISSING_PARAMS_ALERT = "Could not create import run: choose a company and a CSV file.".freeze
+  EXECUTE_FAILED_ALERT = "Execution failed and was rolled back. See audit trail for details.".freeze
+
   before_action :set_import_run, only: [:show, :preflight, :dry_run, :execute]
 
   def index
@@ -26,8 +30,10 @@ class ImportRunsController < ApplicationController
     @import_run.log_event!("import_uploaded", "File #{file.original_filename} uploaded.")
 
     redirect_to import_run_path(@import_run), notice: "Import run created. Run preflight to begin."
-  rescue ActiveRecord::RecordInvalid, ActionController::ParameterMissing => e
-    redirect_to new_import_run_path, alert: "Could not create import run: #{e.message}"
+  rescue ActiveRecord::RecordInvalid
+    redirect_to new_import_run_path, alert: CREATE_FAILED_ALERT
+  rescue ActionController::ParameterMissing
+    redirect_to new_import_run_path, alert: CREATE_MISSING_PARAMS_ALERT
   end
 
   def show
@@ -76,8 +82,8 @@ class ImportRunsController < ApplicationController
     redirect_to import_run_path(@import_run), alert: NOT_READY_ALERT
   rescue Imports::ExecuteService::ExecutionBlockedError
     redirect_to import_run_path(@import_run), alert: "Execution refused: blocking issues remain."
-  rescue ActiveRecord::RecordInvalid => e
-    redirect_to import_run_path(@import_run), alert: "Execution failed and was rolled back: #{e.message}"
+  rescue ActiveRecord::RecordInvalid
+    redirect_to import_run_path(@import_run), alert: EXECUTE_FAILED_ALERT
   end
 
   private
