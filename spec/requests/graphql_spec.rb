@@ -66,6 +66,28 @@ RSpec.describe "GraphQL", type: :request do
     expect(body["errors"].first["message"]).to match(/complexity/i)
   end
 
+  describe "importRuns cap" do
+    let(:cap) { Types::QueryType::MAX_IMPORT_RUNS }
+
+    def fetch_ids
+      post "/graphql", params: { query: "{ importRuns { id } }" }
+      JSON.parse(response.body)["data"]["importRuns"].map { |r| r["id"].to_i }
+    end
+
+    it "returns all runs when fewer than the cap exist" do
+      create_list(:import_run, 2, company: company)
+
+      expect(fetch_ids.size).to eq(3)
+    end
+
+    it "returns only the newest runs, newest first, when more than the cap exist" do
+      import_run.update!(created_at: 1.year.ago)
+      runs = Array.new(cap + 3) { |i| create(:import_run, company: company, created_at: i.minutes.ago) }
+
+      expect(fetch_ids).to eq(runs.first(cap).map(&:id))
+    end
+  end
+
   describe "variables parameter" do
     let(:query) { "query($id: ID!) { importRun(id: $id) { status } }" }
 
