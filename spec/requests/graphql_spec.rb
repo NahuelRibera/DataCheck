@@ -110,6 +110,46 @@ RSpec.describe "GraphQL", type: :request do
     end
   end
 
+  describe "unexpected failures" do
+    let(:marker) { "secret-marker-ssn-123" }
+
+    before do
+      allow(DataCheckSchema).to receive(:execute).and_raise(RuntimeError, marker)
+    end
+
+    it "returns a fixed JSON error without the exception text" do
+      allow(Rails.logger).to receive(:error)
+
+      post "/graphql", params: { query: "{ importRuns { id } }" }
+
+      expect(response).to have_http_status(:internal_server_error)
+      expect(response.media_type).to eq("application/json")
+      body = JSON.parse(response.body)
+      expect(body["errors"]).to eq([{ "message" => "Internal server error" }])
+      expect(response.body).not_to include(marker)
+      expect(response.body).not_to include("backtrace")
+    end
+
+    it "logs only the exception class name" do
+      logged = []
+      allow(Rails.logger).to receive(:error) { |msg = nil, &blk| logged << (msg || blk&.call).to_s }
+
+      post "/graphql", params: { query: "{ importRuns { id } }" }
+
+      expect(logged.join("\n")).to include("RuntimeError")
+      expect(logged.join("\n")).not_to include(marker)
+    end
+
+    it "keeps the detailed output in development" do
+      allow(Rails.env).to receive(:development?).and_return(true)
+
+      post "/graphql", params: { query: "{ importRuns { id } }" }
+
+      expect(response).to have_http_status(:internal_server_error)
+      expect(JSON.parse(response.body)["errors"].first["message"]).to eq(marker)
+    end
+  end
+
   private
 
   def with_forgery_protection
