@@ -144,3 +144,8 @@ with all scalar fields plus its issues) costs about 22. The schema is three
 levels deep (`importRuns > issues > fields`), so depth 6 leaves headroom
 while rejecting pathological nesting. Wide queries built from many aliases
 exceed the complexity limit and get a GraphQL error without executing.
+
+Unexpected failures while executing a query (outside development) return
+status 500 with a fixed body, `{"errors":[{"message":"Internal server error"}]}`.
+The exception message and backtrace are never rendered, and the log records
+only the exception class name. In development the detailed error output is kept.
