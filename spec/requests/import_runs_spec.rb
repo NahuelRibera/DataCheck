@@ -67,6 +67,48 @@ RSpec.describe "ImportRuns", type: :request do
     end
   end
 
+  describe "error messages never echo exception text" do
+    let(:marker) { "SECRET-MARKER-91827" }
+
+    def invalid_error
+      record = Employee.new
+      record.errors.add(:base, marker)
+      ActiveRecord::RecordInvalid.new(record)
+    end
+
+    it "shows a fixed alert when creating a run raises RecordInvalid" do
+      csv = Rack::Test::UploadedFile.new(StringIO.new("external_id\nEMP-1\n"), "text/csv", original_filename: "upload.csv")
+      allow_any_instance_of(ImportRun).to receive(:save_source_csv!).and_raise(invalid_error)
+
+      post "/import_runs", params: { import_run: { company_id: company.id, file: csv } }
+
+      expect(response).to redirect_to(new_import_run_path)
+      expect(flash[:alert]).to eq(ImportRunsController::CREATE_FAILED_ALERT)
+      follow_redirect!
+      expect(response.body).not_to include(marker)
+    end
+
+    it "redirects to the upload form with a fixed message when params are missing" do
+      post "/import_runs", params: {}
+
+      expect(response).to redirect_to(new_import_run_path)
+      expect(flash[:alert]).to eq(ImportRunsController::CREATE_MISSING_PARAMS_ALERT)
+    end
+
+    it "shows a fixed rolled-back alert when execute raises RecordInvalid" do
+      run = create(:import_run, company: company, status: "dry_run_completed")
+      allow_any_instance_of(Imports::ExecuteService).to receive(:call).and_raise(invalid_error)
+
+      post "/import_runs/#{run.id}/execute"
+
+      expect(response).to redirect_to(import_run_path(run))
+      expect(flash[:alert]).to eq(ImportRunsController::EXECUTE_FAILED_ALERT)
+      expect(flash[:alert]).to include("rolled back")
+      follow_redirect!
+      expect(response.body).not_to include(marker)
+    end
+  end
+
   describe "GET /import_runs/:id" do
     it "renders successfully" do
       run = create(:import_run, company: company)
