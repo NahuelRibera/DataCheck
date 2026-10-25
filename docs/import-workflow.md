@@ -39,6 +39,15 @@ which is also a unique index in PostgreSQL.
 
 Error messages never include file contents or the client-supplied filename.
 
+## Stored files on disk
+
+Each run's files live in an environment-scoped directory (`ImportRun#storage_dir`).
+The directory is created with mode `0700`, and `source.csv` and `normalized.csv`
+with mode `0600`, set explicitly so the result does not depend on the process
+umask. Preflight creates `normalized.csv` as `0600` before the profiler writes
+to it, and re-applies the mode afterwards. Only the application user can read
+the stored files.
+
 ## CSV expectations
 
 The header must contain these required columns: `external_id`, `first_name`,
