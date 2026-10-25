@@ -60,6 +60,14 @@ RSpec.describe "ImportRuns", type: :request do
         expect(response.body).to include("does not look like a CSV")
       end
 
+      it "rejects a file missing required columns, naming them, and stores nothing" do
+        expect_any_instance_of(ImportRun).not_to receive(:save_source_csv!)
+        post_upload(upload("external_id,first_name,email\nEMP-9,Secret,s@example.com\n", "partial.csv"))
+        expect(response.body).to include("missing required columns: last_name, department_external_id, start_date, gross_salary")
+        expect(response.body).not_to include("Secret")
+        expect(response.body).not_to include("partial.csv")
+      end
+
       it "rejects a request without a file" do
         post_upload(nil)
         expect(response.body).to include("choose a CSV file")
@@ -77,7 +85,7 @@ RSpec.describe "ImportRuns", type: :request do
     end
 
     it "shows a fixed alert when creating a run raises RecordInvalid" do
-      csv = Rack::Test::UploadedFile.new(StringIO.new("external_id\nEMP-1\n"), "text/csv", original_filename: "upload.csv")
+      csv = Rack::Test::UploadedFile.new(StringIO.new("external_id,first_name,last_name,department_external_id,start_date,gross_salary\nEMP-1,Ada,Lovelace,DEPT-ENG,2024-01-01,50000\n"), "text/csv", original_filename: "upload.csv")
       allow_any_instance_of(ImportRun).to receive(:save_source_csv!).and_raise(invalid_error)
 
       post "/import_runs", params: { import_run: { company_id: company.id, file: csv } }

@@ -54,10 +54,24 @@ in this order. The first failing check produces the error shown to the user.
    contain a NUL byte, and must be valid UTF-8 (after an optional UTF-8 byte
    order mark; a multi-byte character cut off at the end of the sample is
    tolerated).
+5. A header check on the first line (read up to 64 KB): after an optional
+   UTF-8 byte order mark, the line is parsed as CSV, so quoted names work, and
+   each name is stripped of surrounding spaces. The file is refused when any of
+   `Imports::UploadValidator::REQUIRED_COLUMNS` is absent (`external_id`,
+   `first_name`, `last_name`, `department_external_id`, `start_date`,
+   `gross_salary`), with a message such as "The file is missing required
+   columns: last_name, start_date." Extra columns are allowed, names are case
+   sensitive, and an empty first line counts as a header with no columns. A
+   header that cannot be parsed as CSV is refused with a generic message. A
+   refused upload creates no import run and stores no file.
 
-Error messages do not include file contents or the client-supplied filename.
-The text check only inspects the beginning of the file; it does not validate the
-CSV structure, which is the job of preflight.
+The list in the validator must match `REQUIRED_COLUMNS` in
+`scripts/profile_import.py`; a spec fails if they differ.
+
+Error messages do not include file contents or the client-supplied filename;
+the header check names columns only, never cell values. Apart from the header
+row, the checks only inspect the beginning of the file; the rest of the CSV
+structure is validated by preflight.
 
 ### GraphQL
 

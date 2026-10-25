@@ -4,6 +4,9 @@ module Imports
   class UploadValidator
     DEFAULT_MAX_BYTES = 20 * 1024 * 1024
     SNIFF_BYTES = 8192
+    HEADER_BYTES = 64 * 1024
+    # Must match REQUIRED_COLUMNS in scripts/profile_import.py (checked by a spec).
+    REQUIRED_COLUMNS = %w[external_id first_name last_name department_external_id start_date gross_salary].freeze
 
     def self.max_bytes
       configured = Integer(ENV.fetch("IMPORT_MAX_UPLOAD_BYTES", DEFAULT_MAX_BYTES), exception: false)
@@ -28,10 +31,35 @@ module Imports
         return "The file is too large. The maximum upload size is #{format_size(limit)}."
       end
 
-      "The file does not look like a CSV text file." unless csv_like?
+      return "The file does not look like a CSV text file." unless csv_like?
+
+      header_error
     end
 
     private
+
+    # Mirrors scripts/profile_import.py: names are stripped, a leading BOM is
+    # ignored and only the column names are reported, never cell values.
+    def header_error
+      columns = header_columns
+      return "The header row could not be read. Check that the first line lists the column names." if columns.nil?
+
+      missing = REQUIRED_COLUMNS - columns
+      return nil if missing.empty?
+
+      "The file is missing required columns: #{missing.join(', ')}."
+    end
+
+    def header_columns
+      @file.rewind
+      text = @file.read(HEADER_BYTES).to_s.b.delete_prefix("\xEF\xBB\xBF".b)
+      line = text.force_encoding(Encoding::UTF_8).scrub("").split(/\r\n|\r|\n/, 2).first.to_s
+      CSV.parse_line(line)&.map { |name| name.to_s.strip } || []
+    rescue CSV::MalformedCSVError
+      nil
+    ensure
+      @file.rewind
+    end
 
     def csv_like?
       @file.rewind
