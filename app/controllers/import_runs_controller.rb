@@ -6,6 +6,8 @@ class ImportRunsController < ApplicationController
   CREATE_MISSING_PARAMS_ALERT = "Could not create import run: choose a company and a CSV file.".freeze
   EXECUTE_FAILED_ALERT = "Execution failed and was rolled back. See audit trail for details.".freeze
 
+  DRY_RUN_FAILED_ALERT = "Dry run failed. See audit trail for details.".freeze
+
   before_action :set_import_run, only: [:show, :preflight, :dry_run, :execute]
 
   def index
@@ -66,6 +68,10 @@ class ImportRunsController < ApplicationController
     redirect_to import_run_path(@import_run), notice: "Dry run completed."
   rescue Imports::StaleStateError
     redirect_to import_run_path(@import_run), alert: BUSY_ALERT
+  rescue StandardError
+    # The service already marked the run failed and wrote the audit event;
+    # the exception text is never shown.
+    redirect_to import_run_path(@import_run), alert: DRY_RUN_FAILED_ALERT
   end
 
   def execute

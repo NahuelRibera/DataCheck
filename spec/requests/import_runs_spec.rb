@@ -109,6 +109,22 @@ RSpec.describe "ImportRuns", type: :request do
     end
   end
 
+  describe "POST /import_runs/:id/dry_run failure" do
+    it "redirects with a fixed alert and keeps exception text out of the page and audit trail" do
+      run = create(:import_run, company: company, status: "ready")
+      allow_any_instance_of(Imports::MigrationPlan).to receive(:call).and_raise(Errno::ENOENT, "/srv/secret/ada@example.com")
+
+      post "/import_runs/#{run.id}/dry_run"
+
+      expect(response).to redirect_to(import_run_path(run))
+      expect(flash[:alert]).to eq(ImportRunsController::DRY_RUN_FAILED_ALERT)
+      expect(run.reload.status).to eq("failed")
+      expect(run.audit_events.find_by!(event_type: "import_failed").message).to eq("Dry run failed (Errno::ENOENT).")
+      follow_redirect!
+      expect(response.body).not_to include("ada@example.com", "/srv/secret")
+    end
+  end
+
   describe "GET /import_runs/:id" do
     it "renders successfully" do
       run = create(:import_run, company: company)

@@ -53,6 +53,18 @@ RSpec.describe "Api::V1::ImportRuns", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
 
+    it "returns a fixed 422 error when the dry run raises" do
+      import_run.update!(status: "ready")
+      allow_any_instance_of(Imports::MigrationPlan).to receive(:call).and_raise(Errno::ENOENT, "/srv/secret/ada@example.com")
+
+      post "/api/v1/import_runs/#{import_run.id}/dry_run"
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(JSON.parse(response.body)).to eq("error" => Api::V1::ImportRunsController::DRY_RUN_FAILED_ERROR)
+      expect(response.body).not_to include("ada@example.com", "/srv/secret")
+      expect(import_run.reload.status).to eq("failed")
+    end
+
     it "computes counts once preflight has run" do
       run_preflight([default_employee_row(department_external_id: "DEPT-ENG")])
 
