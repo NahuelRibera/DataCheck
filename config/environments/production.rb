@@ -88,10 +88,14 @@ Rails.application.configure do
   config.active_record.dump_schema_after_migration = false
 
   # Enable DNS rebinding protection and other `Host` header attacks.
-  # config.hosts = [
-  #   "example.com",     # Allow requests from example.com
-  #   /.*\.example\.com/ # Allow requests from subdomains like `www.example.com`
-  # ]
-  # Skip DNS rebinding protection for the default health check endpoint.
-  # config.host_authorization = { exclude: ->(request) { request.path == "/up" } }
+  # DATA_CHECK_ALLOWED_HOSTS is a comma-separated list of host names. When it
+  # is unset or blank, host authorization is left as it was (any host). The
+  # /up health check is always excluded. An entry starting with a dot (which
+  # Rails would treat as a subdomain wildcard) stops the boot.
+  require Rails.root.join("config/allowed_hosts")
+  allowed_hosts = AllowedHosts.parse(ENV["DATA_CHECK_ALLOWED_HOSTS"])
+  if allowed_hosts.any?
+    config.hosts = allowed_hosts
+    config.host_authorization = { exclude: AllowedHosts::EXCLUDE_HEALTH_CHECK }
+  end
 end
