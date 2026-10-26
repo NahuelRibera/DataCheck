@@ -36,6 +36,9 @@ which is also a unique index in PostgreSQL.
   back to the default.
 - The first 8192 bytes must be non-empty, contain no NUL bytes, and be valid
   UTF-8 (an optional BOM is accepted).
+- The header row must contain every required column (see below). Otherwise the
+  upload is refused with a message listing the missing column names, and no
+  import run or stored file is created.
 
 Error messages never include file contents or the client-supplied filename.
 
@@ -53,8 +56,8 @@ the stored files.
 The header must contain these required columns: `external_id`, `first_name`,
 `last_name`, `department_external_id`, `start_date`, `gross_salary`. Optional
 columns are `email`, `manager_external_id` and `status` (`active`, `inactive` or
-`terminated`). A file missing a required column cannot be processed and the run
-becomes `failed`.
+`terminated`). A file missing a required column is refused at upload; the profiler
+repeats the check and fails the run if it ever sees such a file.
 
 ```csv
 external_id,first_name,last_name,email,department_external_id,manager_external_id,start_date,gross_salary,status

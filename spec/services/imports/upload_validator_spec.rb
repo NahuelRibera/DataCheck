@@ -20,6 +20,13 @@ RSpec.describe Imports::UploadValidator do
   let(:uploads) { [] }
   after { uploads.each(&:close!) }
 
+  let(:header) { described_class::REQUIRED_COLUMNS.join(",") }
+
+  # A file with a valid header, padded with a comment-free data row to an exact size.
+  def sized_file(bytes)
+    "#{header}\n".ljust(bytes, "a")
+  end
+
   def with_limit(value)
     original = ENV["IMPORT_MAX_UPLOAD_BYTES"]
     ENV["IMPORT_MAX_UPLOAD_BYTES"] = value
@@ -47,13 +54,13 @@ RSpec.describe Imports::UploadValidator do
   describe "#error" do
     it "accepts a file exactly at the limit" do
       with_limit("100") do
-        expect(described_class.error_for(upload("a" * 100))).to be_nil
+        expect(described_class.error_for(upload(sized_file(100)))).to be_nil
       end
     end
 
     it "rejects a file one byte over the limit" do
       with_limit("100") do
-        expect(described_class.error_for(upload("a" * 101))).to eq(
+        expect(described_class.error_for(upload(sized_file(101)))).to eq(
           "The file is too large. The maximum upload size is 100 bytes."
         )
       end
@@ -76,7 +83,7 @@ RSpec.describe Imports::UploadValidator do
     end
 
     it "accepts a sample cut in the middle of a multi-byte character" do
-      text = ("a" * (described_class::SNIFF_BYTES - 1)) + "é"
+      text = "#{header}\n" + ("a" * (described_class::SNIFF_BYTES - header.bytesize - 2)) + "é"
       expect(text.bytesize).to eq(described_class::SNIFF_BYTES + 1)
       expect(described_class.error_for(upload(text))).to be_nil
     end
@@ -90,6 +97,7 @@ RSpec.describe Imports::UploadValidator do
     it "never includes the client filename in any message" do
       messages = [
         described_class.error_for(upload("a,b\n", filename: "#{secret_name}.exe")),
+        described_class.error_for(upload("a,b\n1,2\n", filename: secret_name)),
         described_class.error_for(upload("a\x00b", filename: secret_name)),
         described_class.error_for(upload("", filename: secret_name))
       ]
@@ -97,6 +105,71 @@ RSpec.describe Imports::UploadValidator do
 
       expect(messages).to all(be_a(String))
       messages.each { |m| expect(m).not_to include("zq-payroll-xk", ".exe") }
+    end
+
+    describe "header check" do
+      let(:required) { described_class::REQUIRED_COLUMNS }
+
+      it "accepts a valid header with extra optional columns" do
+        expect(described_class.error_for(upload("#{header},email,status\nEMP-1,a,b,D,2024-01-01,1,x,y\n"))).to be_nil
+      end
+
+      it "accepts a header with a UTF-8 byte order mark" do
+        expect(described_class.error_for(upload("\xEF\xBB\xBF#{header}\n".b))).to be_nil
+      end
+
+      it "accepts quoted names, surrounding spaces and CRLF line endings" do
+        quoted = required.map { |c| %("  #{c} ") }.join(",")
+        expect(described_class.error_for(upload("#{quoted}\r\nrow\r\n"))).to be_nil
+      end
+
+      it "accepts a header-only file without a trailing newline" do
+        expect(described_class.error_for(upload(header))).to be_nil
+      end
+
+      it "lists every missing column in a stable order" do
+        content = "external_id,email\nEMP-1,secret@example.com\n"
+        expect(described_class.error_for(upload(content))).to eq(
+          "The file is missing required columns: first_name, last_name, department_external_id, start_date, gross_salary."
+        )
+      end
+
+      it "names a single missing column" do
+        columns = (required - ["gross_salary"]).join(",")
+        expect(described_class.error_for(upload("#{columns}\n"))).to eq(
+          "The file is missing required columns: gross_salary."
+        )
+      end
+
+      it "treats an empty first line as a header with no columns" do
+        error = described_class.error_for(upload("\n#{header}\n"))
+        expect(error).to eq("The file is missing required columns: #{required.join(', ')}.")
+      end
+
+      it "is case sensitive like the profiler" do
+        expect(described_class.error_for(upload("#{header.upcase}\n"))).to start_with("The file is missing")
+      end
+
+      it "reports an unreadable header without echoing it" do
+        error = described_class.error_for(upload(%(external_id,"unterminated secret-cell\n1,2\n)))
+        expect(error).to eq("The header row could not be read. Check that the first line lists the column names.")
+      end
+
+      it "never includes cell values in the message" do
+        error = described_class.error_for(upload("external_id,first_name\nzq-secret-1,zq-secret-2\n"))
+        expect(error).not_to include("zq-secret")
+      end
+    end
+  end
+
+  describe "REQUIRED_COLUMNS" do
+    it "matches the required columns of the Python profiler" do
+      source = Rails.root.join("scripts/profile_import.py").read
+      block = source[/^REQUIRED_COLUMNS\s*=\s*\{(.*?)\}/m, 1]
+      expect(block).not_to be_nil
+      python_columns = block.scan(/["']([^"']+)["']/).flatten
+
+      expect(described_class::REQUIRED_COLUMNS).to match_array(python_columns)
     end
   end
 end
