@@ -11,6 +11,7 @@ that are built into the code. Each entry names the file that defines it.
 | --- | --- | --- | --- |
 | `IMPORT_MAX_UPLOAD_BYTES` | `20971520` (20 MB) | Maximum size of an uploaded CSV, in bytes. Uploads larger than this are refused with a "file is too large" message. A value that is not a positive integer is ignored and the default is used. | `app/services/imports/upload_validator.rb` |
 | `PYTHON_BIN` | `python3` | Python executable used to run `scripts/profile_import.py` during preflight. It is read once when the app loads, so changing it requires a restart. | `app/services/imports/preflight_service.rb` |
+| `DATA_CHECK_ALLOWED_HOSTS` | unset | Comma-separated list of host names the production app accepts in the `Host` header, for example `app.example.com,admin.example.com`. Blanks and surrounding whitespace are ignored. Requests with any other host are refused (Rails host authorization, HTTP 403). The `/up` health check answers for any host. When unset or blank, host authorization is unchanged and any host is accepted. A leading dot is not special; list each host name explicitly. Read once at boot, so changing it requires a restart. | `config/allowed_hosts.rb`, `config/environments/production.rb` |
 
 ### Database
 
