@@ -68,6 +68,15 @@ managers, invalid dates or salaries, and missing identifiers are blocking
 issues. A malformed email is a warning and does not block the row. Issues
 reference the row number, field name and external ID, never the raw value.
 
+## REST API errors
+
+REST errors are JSON of the form `{"error": "<fixed text>"}`. A malformed JSON
+body and a missing required parameter return 400, an unknown record 404, a
+refused execution 422, and any unexpected exception 500 with
+`internal server error`. The texts are fixed: they never include exception
+messages or request values, and the 500 handler logs only the exception class
+name.
+
 ## Verification checks
 
 Verification reads the database after execution; the results are not taken from
