@@ -90,7 +90,8 @@ Rails.application.configure do
   # Enable DNS rebinding protection and other `Host` header attacks.
   # DATA_CHECK_ALLOWED_HOSTS is a comma-separated list of host names. When it
   # is unset or blank, host authorization is left as it was (any host). The
-  # /up health check is always excluded.
+  # /up health check is always excluded. An entry starting with a dot (which
+  # Rails would treat as a subdomain wildcard) stops the boot.
   require Rails.root.join("config/allowed_hosts")
   allowed_hosts = AllowedHosts.parse(ENV["DATA_CHECK_ALLOWED_HOSTS"])
   if allowed_hosts.any?

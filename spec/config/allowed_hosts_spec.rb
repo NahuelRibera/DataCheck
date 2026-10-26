@@ -15,6 +15,19 @@ RSpec.describe AllowedHosts do
       expect(described_class.parse(nil)).to eq([])
       expect(described_class.parse("  ")).to eq([])
     end
+
+    it "refuses an entry starting with a dot, which Rails reads as a subdomain wildcard" do
+      expect { described_class.parse("app.example.com, .example.com") }
+        .to raise_error(described_class::InvalidEntry, /"\.example\.com" starts with a dot/)
+    end
+
+    it "refuses a leading dot hidden behind whitespace" do
+      expect { described_class.parse("  .example.com") }.to raise_error(described_class::InvalidEntry)
+    end
+
+    it "accepts dots inside a host name" do
+      expect(described_class.parse("a.b.example.com")).to eq(%w[a.b.example.com])
+    end
   end
 
   describe "host authorization with the production settings" do
