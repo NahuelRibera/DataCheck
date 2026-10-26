@@ -48,7 +48,13 @@ module Imports
       # direct caller (console, future code path) shouldn't be met with an
       # unhandled exception and no audit trail explaining what happened.
       import_run.update!(status: "failed")
-      import_run.log_event!("import_failed", "Dry run failed: #{e.message.truncate(300)}")
+      # Exception text is deliberately left out (it can carry file paths or
+      # record details); only the class name is recorded.
+      import_run.log_event!(
+        "import_failed",
+        "Dry run failed (#{e.class.name}).",
+        metadata: { error_class: e.class.name }
+      )
       raise
     end
 

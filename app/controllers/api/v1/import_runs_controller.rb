@@ -4,6 +4,8 @@ module Api
       NOT_READY_ERROR = "run a dry run on an unblocked import before executing".freeze
       BUSY_ERROR = "import run is already being processed or completed".freeze
 
+      DRY_RUN_FAILED_ERROR = "dry run failed; see audit trail for details".freeze
+
       before_action :set_import_run, only: [:show, :issues, :preflight, :dry_run, :execute, :verification]
 
       def index
@@ -44,6 +46,8 @@ module Api
         render json: serialize_run(@import_run.reload, detailed: true)
       rescue Imports::StaleStateError
         render json: { error: BUSY_ERROR }, status: :unprocessable_content
+      rescue StandardError
+        render json: { error: DRY_RUN_FAILED_ERROR }, status: :unprocessable_content
       end
 
       def execute

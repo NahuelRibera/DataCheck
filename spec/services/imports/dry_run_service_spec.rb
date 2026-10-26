@@ -70,6 +70,21 @@ RSpec.describe Imports::DryRunService, type: :service do
     expect(reloaded.status).to eq("failed")
     expect(reloaded.audit_events.pluck(:event_type)).to include("import_failed")
   end
+  it "records only a fixed sentence and the exception class when the plan raises" do
+    run_preflight([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
+    secret = "/srv/secret/path/ada@example.com"
+    allow_any_instance_of(Imports::MigrationPlan).to receive(:call).and_raise(RuntimeError, secret)
+
+    expect { Imports::DryRunService.new(import_run).call }.to raise_error(RuntimeError)
+
+    import_run.reload
+    expect(import_run.status).to eq("failed")
+    event = import_run.audit_events.find_by!(event_type: "import_failed")
+    expect(event.message).to eq("Dry run failed (RuntimeError).")
+    expect(event.metadata).to eq("error_class" => "RuntimeError")
+    expect(event.to_json).not_to include("secret", "ada@example.com")
+  end
+
   %w[profiling importing completed].each do |busy_status|
     it "refuses a run that is #{busy_status} without logging or changing it" do
       run_preflight([default_employee_row(external_id: "EMP-1", department_external_id: "DEPT-ENG")])
