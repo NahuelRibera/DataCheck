@@ -69,9 +69,35 @@ class ImportRun < ApplicationRecord
     storage_dir.join("normalized.csv")
   end
 
+  DIR_MODE = 0o700
+  FILE_MODE = 0o600
+
   def save_source_csv!(io)
-    FileUtils.mkdir_p(storage_dir)
+    ensure_private_storage_dir!
     # Chunked copy: memory use stays flat however large the upload is.
-    File.open(source_csv_path, "wb") { |f| IO.copy_stream(io, f) }
+    # The mode only applies on creation and is masked by the umask, so it is
+    # set explicitly as well.
+    File.open(source_csv_path, "wb", FILE_MODE) do |f|
+      f.chmod(FILE_MODE)
+      IO.copy_stream(io, f)
+    end
+  end
+
+  # Creates normalized.csv owner-only before the profiler writes into it
+  # (the profiler truncates the existing file and so keeps its mode).
+  def prepare_normalized_csv!
+    ensure_private_storage_dir!
+    File.open(normalized_csv_path, "wb", FILE_MODE) { |f| f.chmod(FILE_MODE) }
+  end
+
+  def restrict_normalized_csv!
+    File.chmod(FILE_MODE, normalized_csv_path) if File.exist?(normalized_csv_path)
+  end
+
+  private
+
+  def ensure_private_storage_dir!
+    FileUtils.mkdir_p(storage_dir, mode: DIR_MODE)
+    File.chmod(DIR_MODE, storage_dir)
   end
 end

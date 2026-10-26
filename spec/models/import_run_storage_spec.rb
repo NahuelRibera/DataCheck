@@ -42,3 +42,49 @@ RSpec.describe "ImportRun file storage", type: :model do
     end
   end
 end
+
+RSpec.describe "ImportRun file permissions", type: :model do
+  let(:run) { create(:import_run) }
+
+  after { FileUtils.rm_rf(run.storage_dir) }
+
+  def mode_of(path) = File.stat(path).mode & 0o777
+
+  it "creates the directory 0700 and source.csv 0600 under a permissive umask" do
+    old = File.umask(0o000)
+    begin
+      run.save_source_csv!(StringIO.new("external_id\nE1\n"))
+    ensure
+      File.umask(old)
+    end
+
+    expect(mode_of(run.storage_dir)).to eq(0o700)
+    expect(mode_of(run.source_csv_path)).to eq(0o600)
+  end
+
+  it "tightens a pre-existing permissive directory and file" do
+    FileUtils.mkdir_p(run.storage_dir)
+    File.chmod(0o755, run.storage_dir)
+    File.write(run.source_csv_path, "x")
+    File.chmod(0o644, run.source_csv_path)
+
+    run.save_source_csv!(StringIO.new("external_id\nE1\n"))
+
+    expect(mode_of(run.storage_dir)).to eq(0o700)
+    expect(mode_of(run.source_csv_path)).to eq(0o600)
+  end
+
+  it "keeps normalized.csv 0600 after preflight, even under a permissive umask" do
+    old = File.umask(0o000)
+    begin
+      run.save_source_csv!(StringIO.new("external_id\nE1\n"))
+      Imports::PreflightService.new(run).call
+    ensure
+      File.umask(old)
+    end
+
+    expect(File.exist?(run.normalized_csv_path)).to be(true)
+    expect(mode_of(run.normalized_csv_path)).to eq(0o600)
+    expect(mode_of(run.storage_dir)).to eq(0o700)
+  end
+end

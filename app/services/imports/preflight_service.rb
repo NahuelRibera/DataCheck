@@ -30,6 +30,8 @@ module Imports
       known_departments_file = write_temp_list(company.departments.pluck(:external_id))
       known_employees_file = write_temp_list(company.employees.pluck(:external_id))
 
+      import_run.prepare_normalized_csv!
+
       stdout, stderr, status = Open3.capture3(
         PYTHON_BIN, SCRIPT_PATH.to_s,
         "--csv", import_run.source_csv_path.to_s,
@@ -37,6 +39,8 @@ module Imports
         "--known-employees-file", known_employees_file.path,
         "--normalized-output", import_run.normalized_csv_path.to_s
       )
+
+      import_run.restrict_normalized_csv!
 
       unless status.success?
         return fail_run!("Preflight profiler exited with status #{status.exitstatus}", stderr)
